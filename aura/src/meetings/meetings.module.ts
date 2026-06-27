@@ -1,12 +1,12 @@
 import { Module } from '@nestjs/common';
-import { AudiorayService } from 'src/services/audioray.service';
+import { TranscriptionModule } from 'src/transcription/transcription.module';
 import { MeetingsController } from './meetings.controller';
 import { MeetingsService } from './meetings.service';
-import { TranscriptAggregatorService } from './transcript-aggregator.service';
 
 @Module({
+  imports: [TranscriptionModule],
   controllers: [MeetingsController],
-  providers: [MeetingsService, TranscriptAggregatorService, AudiorayService],
-  exports: [MeetingsService, TranscriptAggregatorService, AudiorayService],
+  providers: [MeetingsService],
+  exports: [MeetingsService],
 })
 export class MeetingsModule {}

@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { map, Observable } from 'rxjs';
 import { MeetingsService } from './meetings.service';
-import { TranscriptAggregatorService } from './transcript-aggregator.service';
+import { TranscriptAggregatorService } from 'src/transcription/transcript-aggregator.service';
 
 @Controller('meetings')
 export class MeetingsController {

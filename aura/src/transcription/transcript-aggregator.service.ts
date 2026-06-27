@@ -4,15 +4,22 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Observable, Subject } from 'rxjs';
 import { filter } from 'rxjs/operators';
-import { TranscriptSegment } from './interfaces/transcript-segment.interface';
+import { AppConfigService } from 'src/config/app-config.service';
+import { TranscriptSegment } from 'src/meetings/entities/meeting.entity';
 
 @Injectable()
 export class TranscriptAggregatorService implements OnModuleInit {
   private readonly logger = new Logger(TranscriptAggregatorService.name);
-  private readonly projectRoot = path.resolve(__dirname, '..', '..');
-  private readonly transcriptsFolder = path.join(this.projectRoot, 'transcripts');
+  private readonly transcriptsFolder: string;
   private readonly segmentsByMeeting = new Map<string, TranscriptSegment[]>();
   private readonly segmentSubject = new Subject<TranscriptSegment>();
+
+  constructor(private readonly config: AppConfigService) {
+    this.transcriptsFolder = path.join(
+      process.cwd(),
+      this.config.values.paths.transcripts,
+    );
+  }
 
   onModuleInit() {
     if (!fs.existsSync(this.transcriptsFolder)) {
@@ -49,12 +56,6 @@ export class TranscriptAggregatorService implements OnModuleInit {
 
   getSegments(meetingId: string): TranscriptSegment[] {
     return [...(this.segmentsByMeeting.get(meetingId) ?? [])];
-  }
-
-  getFullText(meetingId: string): string {
-    return this.getSegments(meetingId)
-      .map((s) => `[${s.startedAt}] ${s.speaker}: ${s.text}`)
-      .join('\n');
   }
 
   watchSegments(meetingId: string): Observable<TranscriptSegment> {

@@ -2,10 +2,9 @@ import { Logger } from '@nestjs/common';
 import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import { Browser, Page } from 'puppeteer';
-import { IMeetingBot } from '../interfaces/meeting-bot.interface';
-import { AudiorayService } from 'src/services/audioray.service';
+import { AudiorayClient } from 'src/transcription/audioray.client';
+import { IMeetingBot } from './interfaces/meeting-bot.interface';
 
-// Инициализируем плагин один раз для всех будущих ботов
 puppeteer.use(StealthPlugin());
 
 export abstract class BaseBot implements IMeetingBot {
@@ -13,7 +12,7 @@ export abstract class BaseBot implements IMeetingBot {
   public abstract readonly platformName: string;
   protected browserInstance: Browser | null = null;
 
-  constructor(protected readonly audiorayService: AudiorayService) {}
+  constructor(protected readonly audiorayClient: AudiorayClient) {}
 
   async start(url: string, botName: string): Promise<Browser> {
     if (this.browserInstance) {
@@ -38,7 +37,6 @@ export abstract class BaseBot implements IMeetingBot {
       const page = await this.browserInstance.newPage();
       await page.setViewport({ width: 1280, height: 720 });
 
-      // Общая базовая оптимизация сетевых запросов
       await page.setRequestInterception(true);
       page.on('request', (req) => {
         if (['image', 'media'].includes(req.resourceType())) {
@@ -48,9 +46,7 @@ export abstract class BaseBot implements IMeetingBot {
         }
       });
 
-      // Передаем управление конкретной реализации (Телемост, Мит и т.д.)
       await this.handleMeetingFlow(page, url, botName);
-
       return this.browserInstance;
     } catch (error) {
       await this.stop();

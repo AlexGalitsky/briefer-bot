@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { AppConfigService } from 'src/config/app-config.service';
 import { MeetingsService } from 'src/meetings/meetings.service';
-import { AudiorayService } from 'src/services/audioray.service';
+import { BotFactory } from './bot.factory';
 import { BotService } from './bot.service';
 
 describe('BotService', () => {
@@ -11,10 +12,8 @@ describe('BotService', () => {
       providers: [
         BotService,
         {
-          provide: AudiorayService,
-          useValue: {
-            sendAudioToAudioray: jest.fn(),
-          },
+          provide: BotFactory,
+          useValue: { create: jest.fn() },
         },
         {
           provide: MeetingsService,
@@ -23,6 +22,12 @@ describe('BotService', () => {
             createMeeting: jest.fn(),
             setStatus: jest.fn(),
             endActiveMeeting: jest.fn(),
+          },
+        },
+        {
+          provide: AppConfigService,
+          useValue: {
+            values: { bot: { defaultName: 'Аура' } },
           },
         },
       ],

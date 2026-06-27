@@ -1,10 +1,11 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
+import { AppConfigService } from 'src/config/app-config.service';
 import { MeetingsService } from 'src/meetings/meetings.service';
-import { TranscriptAggregatorService } from 'src/meetings/transcript-aggregator.service';
+import { TranscriptAggregatorService } from './transcript-aggregator.service';
 
-interface AudiorayTranscribeResponse {
+export interface AudiorayTranscribeResponse {
   speaker: string;
   text: string;
   processingTimeSec: string;
@@ -12,20 +13,23 @@ interface AudiorayTranscribeResponse {
 }
 
 @Injectable()
-export class AudiorayService implements OnModuleInit {
-  private readonly logger = new Logger(AudiorayService.name);
-  private readonly outputFolder = path.join(process.cwd(), 'recordings');
-  private readonly audiorayServerUrl =
-    process.env.AUDIORAY_URL ??
-    'http://localhost:3000/api/whisper/transcribe';
+export class AudiorayClient implements OnModuleInit {
+  private readonly logger = new Logger(AudiorayClient.name);
+  private readonly outputFolder: string;
 
   constructor(
+    private readonly config: AppConfigService,
     private readonly meetingsService: MeetingsService,
     private readonly transcriptAggregator: TranscriptAggregatorService,
-  ) {}
+  ) {
+    this.outputFolder = path.join(
+      process.cwd(),
+      this.config.values.paths.recordings,
+    );
+  }
 
   onModuleInit() {
-    this.logger.log(`Audioray endpoint: ${this.audiorayServerUrl}`);
+    this.logger.log(`Audioray endpoint: ${this.config.values.audioray.url}`);
     if (!fs.existsSync(this.outputFolder)) {
       fs.mkdirSync(this.outputFolder, { recursive: true });
       this.logger.log(
@@ -34,7 +38,7 @@ export class AudiorayService implements OnModuleInit {
     }
   }
 
-  async sendAudioToAudioray(
+  async transcribeChunk(
     audioBuffer: Buffer,
     speakerName: string,
   ): Promise<AudiorayTranscribeResponse | null> {
@@ -57,7 +61,7 @@ export class AudiorayService implements OnModuleInit {
     formData.append('file', blob, 'chunk.webm');
     formData.append('speaker', speakerName);
 
-    const response = await fetch(this.audiorayServerUrl, {
+    const response = await fetch(this.config.values.audioray.url, {
       method: 'POST',
       body: formData,
     });
@@ -100,7 +104,9 @@ export class AudiorayService implements OnModuleInit {
       const filePath = path.join(this.outputFolder, fileName);
 
       fs.writeFileSync(filePath, buffer);
-      this.logger.log(`[Диск] Чанк успешно сохранен: recordings/${fileName}`);
+      this.logger.log(
+        `[Диск] Чанк сохранен: ${this.config.values.paths.recordings}/${fileName}`,
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.error(`Не удалось сохранить чанк на диск: ${message}`);

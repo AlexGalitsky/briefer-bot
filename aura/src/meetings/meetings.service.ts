@@ -5,7 +5,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { randomUUID } from 'crypto';
-import { Meeting, MeetingStatus } from './interfaces/transcript-segment.interface';
+import {
+  Meeting,
+  MeetingStatus,
+} from './entities/meeting.entity';
 
 @Injectable()
 export class MeetingsService {

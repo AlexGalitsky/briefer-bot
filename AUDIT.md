@@ -354,6 +354,18 @@ audioray/src/
 
 ### Фаза 3 — Структура кода (1–2 недели)
 
+- [x] Aura: `config/` с `AppConfigService` (env без `@nestjs/config`)
+- [x] Aura: `transcription/audioray.client.ts` вместо `services/audioray.service.ts`
+- [x] Aura: `transcription/transcript-aggregator.service.ts` (вынесен из `meetings/`)
+- [x] Aura: `bot/platforms/telemost/` и `google-meet/` + `bot.factory.ts`
+- [x] Aura: удалены `bot/bots/*`, `services/audioray.service.ts`
+- [x] Audioray: `config/` с `AppConfigService`
+- [x] Audioray: `audio-converter`, `vad`, `hallucination-filter` — отдельные сервисы
+- [x] Audioray: `whisper-process.service.ts` (бывш. `whisper-worker.service.ts`)
+- [x] Audioray: `whisper.service.ts` — только оркестрация
+- [x] Audioray: `transcription/` с `TranscriptStore` + `FileTranscriptStore`
+- [x] Оба проекта: `npm run build` проходит
+
 #### Aura
 
 ```
@@ -418,7 +430,7 @@ Telemost     env, API fix       worker, VAD     API, WS live     auth, Trello
 | **0** | E2E без 400 ошибок | Бот в Telemost → текст в transcripts |
 | **1** | Стабильное RT распознавание | Нет отставания > 1 чанка, нет галлюцинаций на тишине |
 | **2** | Стенограмма как API | Можно получить полный текст встречи по ID |
-| **3** | Чистая архитектура | Новая платформа = новый bot + selectors |
+| **3** | Чистая архитектура | Новая платформа = новый bot + selectors ✅ |
 | **4** | Продукт | Админка, пользователи, история встреч |
 
 ---

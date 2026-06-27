@@ -3,7 +3,7 @@ import { execFile } from 'child_process';
 import * as fs from 'fs';
 import { promisify } from 'util';
 import { TranscriptionQueueService } from '../whisper/transcription-queue.service';
-import { WhisperWorkerService } from '../whisper/whisper-worker.service';
+import { WhisperProcessService } from '../whisper/whisper-process.service';
 
 const execFileAsync = promisify(execFile);
 
@@ -20,26 +20,20 @@ export interface HealthCheckResult {
 @Injectable()
 export class HealthService {
   constructor(
-    private readonly whisperWorker: WhisperWorkerService,
+    private readonly whisperProcess: WhisperProcessService,
     private readonly transcriptionQueue: TranscriptionQueueService,
   ) {}
 
   async check(): Promise<HealthCheckResult> {
     const [ffmpeg, whisperServer] = await Promise.all([
       this.checkFfmpeg(),
-      this.whisperWorker.ping(),
+      this.whisperProcess.ping(),
     ]);
 
-    const model = fs.existsSync(this.whisperWorker.modelPath);
+    const model = fs.existsSync(this.whisperProcess.modelPath);
     const queueDepth = this.transcriptionQueue.getDepth();
 
-    const checks = {
-      model,
-      ffmpeg,
-      whisperServer,
-      queueDepth,
-    };
-
+    const checks = { model, ffmpeg, whisperServer, queueDepth };
     const status =
       model && ffmpeg && whisperServer ? 'ok' : ('degraded' as const);
 

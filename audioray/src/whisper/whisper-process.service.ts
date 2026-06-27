@@ -8,12 +8,13 @@ import { execFile, spawn, type ChildProcess } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import { promisify } from 'util';
+import { AppConfigService } from 'src/config/app-config.service';
 
 const execFileAsync = promisify(execFile);
 
 @Injectable()
-export class WhisperWorkerService implements OnModuleInit, OnModuleDestroy {
-  private readonly logger = new Logger(WhisperWorkerService.name);
+export class WhisperProcessService implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(WhisperProcessService.name);
   private readonly projectRoot = path.resolve(__dirname, '..', '..');
   private readonly whisperCppDir = path.join(
     this.projectRoot,
@@ -23,15 +24,24 @@ export class WhisperWorkerService implements OnModuleInit, OnModuleDestroy {
     'whisper.cpp',
   );
   private readonly serverBinary = path.join(this.whisperCppDir, 'server');
-  readonly modelPath = path.resolve(
-    this.projectRoot,
-    'models',
-    process.env.WHISPER_MODEL ?? 'ggml-large-v3-turbo.bin',
-  );
-  private readonly serverHost = process.env.WHISPER_SERVER_HOST ?? '127.0.0.1';
-  private readonly serverPort = Number(process.env.WHISPER_SERVER_PORT ?? 8081);
+  readonly modelPath: string;
+  private readonly serverHost: string;
+  private readonly serverPort: number;
+  private readonly startupMs: number;
   private serverProcess: ChildProcess | null = null;
   private ready = false;
+
+  constructor(private readonly config: AppConfigService) {
+    const { whisper } = this.config.values;
+    this.modelPath = path.resolve(
+      this.projectRoot,
+      'models',
+      whisper.model,
+    );
+    this.serverHost = whisper.serverHost;
+    this.serverPort = whisper.serverPort;
+    this.startupMs = whisper.startupMs;
+  }
 
   getServerUrl(): string {
     return `http://${this.serverHost}:${this.serverPort}`;
@@ -46,22 +56,21 @@ export class WhisperWorkerService implements OnModuleInit, OnModuleDestroy {
     await this.startServer();
     await this.waitUntilReady();
     this.logger.log(
-      `Whisper worker запущен: ${this.getServerUrl()} (модель в памяти)`,
+      `Whisper process запущен: ${this.getServerUrl()} (модель в памяти)`,
     );
   }
 
   async onModuleDestroy(): Promise<void> {
     if (!this.serverProcess) return;
-
     this.serverProcess.kill('SIGTERM');
     this.serverProcess = null;
     this.ready = false;
-    this.logger.log('Whisper worker остановлен');
+    this.logger.log('Whisper process остановлен');
   }
 
   async transcribe(wavPath: string, prompt: string): Promise<string> {
     if (!this.isReady()) {
-      throw new Error('Whisper worker не готов');
+      throw new Error('Whisper process не готов');
     }
 
     const fileBuffer = fs.readFileSync(wavPath);
@@ -105,7 +114,6 @@ export class WhisperWorkerService implements OnModuleInit, OnModuleDestroy {
     if (!fs.existsSync(this.modelPath)) {
       errors.push(`модель не найдена: ${this.modelPath}`);
     }
-
     if (!fs.existsSync(this.serverBinary)) {
       errors.push(`бинарник whisper server не найден: ${this.serverBinary}`);
     }
@@ -124,16 +132,17 @@ export class WhisperWorkerService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async startServer(): Promise<void> {
+    const { whisper } = this.config.values;
     const args = [
       '-m',
       this.modelPath,
       '-l',
-      'ru',
+      whisper.language,
       '-nt',
       '-et',
-      '2.8',
+      String(whisper.entropyThreshold),
       '-lpt',
-      '-0.5',
+      String(whisper.logprobThreshold),
       '--host',
       this.serverHost,
       '--port',
@@ -143,10 +152,6 @@ export class WhisperWorkerService implements OnModuleInit, OnModuleDestroy {
     this.serverProcess = spawn(this.serverBinary, args, {
       cwd: this.whisperCppDir,
       stdio: ['ignore', 'pipe', 'pipe'],
-    });
-
-    this.serverProcess.stdout?.on('data', (chunk: Buffer) => {
-      this.logger.debug(chunk.toString().trim());
     });
 
     this.serverProcess.stderr?.on('data', (chunk: Buffer) => {
@@ -163,20 +168,18 @@ export class WhisperWorkerService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async waitUntilReady(): Promise<void> {
-    const timeoutMs = Number(process.env.WHISPER_SERVER_STARTUP_MS ?? 120_000);
     const startedAt = Date.now();
 
-    while (Date.now() - startedAt < timeoutMs) {
+    while (Date.now() - startedAt < this.startupMs) {
       if (await this.ping()) {
         this.ready = true;
         return;
       }
-
       await new Promise((resolve) => setTimeout(resolve, 500));
     }
 
     throw new Error(
-      `Whisper server не ответил за ${timeoutMs}ms (${this.getServerUrl()})`,
+      `Whisper server не ответил за ${this.startupMs}ms (${this.getServerUrl()})`,
     );
   }
 }

@@ -1,12 +1,12 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import { AppConfigService } from './config/app-config.service';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-
-  // Включаем хуки завершения работы приложения (ОБЯЗАТЕЛЬНО)
   app.enableShutdownHooks();
 
-  await app.listen(process.env.PORT ?? 4000);
+  const config = app.get(AppConfigService);
+  await app.listen(config.values.port);
 }
 bootstrap();
