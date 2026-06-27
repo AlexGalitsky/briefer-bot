@@ -1,6 +1,8 @@
 import {
+  BadRequestException,
   Body,
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
   Logger,
@@ -16,14 +18,26 @@ export class BotController {
 
   @Post('start')
   @HttpCode(HttpStatus.OK)
-  start(@Body() body: { url: string; name?: string }) {
-    const botName = body.name ?? 'Аура';
+  start(
+    @Body()
+    body: {
+      url: string;
+      botName?: string;
+      name?: string;
+      meetingId: string;
+    },
+  ) {
+    if (!body.meetingId?.trim()) {
+      throw new BadRequestException('Поле "meetingId" обязательно');
+    }
+
+    const botName = body.botName ?? body.name ?? 'Аура';
     this.botService.validateStart(body.url);
 
-    const meeting = this.botService.createMeeting(body.url, botName);
+    this.botService.registerMeeting(body.meetingId, body.url, botName);
 
     void this.botService
-      .startBot(body.url, botName, meeting.id)
+      .startBot(body.url, botName, body.meetingId)
       .catch((error: Error) => {
         this.logger.error(
           `Ошибка запуска бота: ${error.message}`,
@@ -33,7 +47,7 @@ export class BotController {
 
     return {
       success: true,
-      meetingId: meeting.id,
+      meetingId: body.meetingId,
       message: 'Команда на обработку встречи принята.',
     };
   }
@@ -42,5 +56,10 @@ export class BotController {
   @HttpCode(HttpStatus.OK)
   async stop() {
     return await this.botService.stopBot();
+  }
+
+  @Get('status')
+  getStatus() {
+    return this.botService.getStatus();
   }
 }

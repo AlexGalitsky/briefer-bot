@@ -4,7 +4,7 @@ import {
   Logger,
   OnApplicationShutdown,
 } from '@nestjs/common';
-import { AppConfigService } from 'src/config/app-config.service';
+import { BackendClient } from 'src/backend/backend.client';
 import { MeetingsService } from 'src/meetings/meetings.service';
 import { BotFactory } from './bot.factory';
 import { IMeetingBot } from './interfaces/meeting-bot.interface';
@@ -17,7 +17,7 @@ export class BotService implements OnApplicationShutdown {
   constructor(
     private readonly botFactory: BotFactory,
     private readonly meetingsService: MeetingsService,
-    private readonly config: AppConfigService,
+    private readonly backendClient: BackendClient,
   ) {}
 
   validateStart(url: string): void {
@@ -34,10 +34,14 @@ export class BotService implements OnApplicationShutdown {
     this.meetingsService.detectPlatform(url);
   }
 
-  createMeeting(url: string, botName?: string) {
+  registerMeeting(meetingId: string, url: string, botName: string) {
     const platform = this.meetingsService.detectPlatform(url);
-    const name = botName ?? this.config.values.bot.defaultName;
-    return this.meetingsService.createMeeting(url, name, platform);
+    return this.meetingsService.registerMeeting(
+      meetingId,
+      url,
+      botName,
+      platform,
+    );
   }
 
   async startBot(url: string, botName: string, meetingId: string) {
@@ -47,6 +51,7 @@ export class BotService implements OnApplicationShutdown {
     try {
       await this.activeBot.start(url, botName);
       this.meetingsService.setStatus(meetingId, 'active');
+      void this.backendClient.updateMeetingStatus(meetingId, 'active');
       return { success: true, platform: this.activeBot.platformName, meetingId };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -54,6 +59,7 @@ export class BotService implements OnApplicationShutdown {
         `Провал запуска стратегии ${this.activeBot?.platformName}: ${message}`,
       );
       this.meetingsService.setStatus(meetingId, 'failed');
+      void this.backendClient.updateMeetingStatus(meetingId, 'failed');
       this.activeBot = null;
       throw error;
     }
@@ -69,6 +75,10 @@ export class BotService implements OnApplicationShutdown {
     const meeting = this.meetingsService.endActiveMeeting();
     this.activeBot = null;
 
+    if (meeting) {
+      void this.backendClient.updateMeetingStatus(meeting.id, 'ended');
+    }
+
     return {
       success: true,
       message: `Бот платформы ${platform} успешно остановлен.`,
@@ -79,7 +89,19 @@ export class BotService implements OnApplicationShutdown {
   async onApplicationShutdown() {
     if (this.activeBot) {
       await this.activeBot.stop();
-      this.meetingsService.endActiveMeeting();
+      const meeting = this.meetingsService.endActiveMeeting();
+      if (meeting) {
+        void this.backendClient.updateMeetingStatus(meeting.id, 'ended');
+      }
     }
+  }
+
+  getStatus() {
+    const meeting = this.meetingsService.getActiveMeeting();
+    return {
+      active: this.activeBot?.isActive() ?? false,
+      platform: this.activeBot?.platformName,
+      meetingId: meeting?.id ?? null,
+    };
   }
 }

@@ -4,11 +4,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { randomUUID } from 'crypto';
-import {
-  Meeting,
-  MeetingStatus,
-} from './entities/meeting.entity';
+import { Meeting, MeetingStatus } from './entities/meeting.entity';
 
 @Injectable()
 export class MeetingsService {
@@ -16,7 +12,12 @@ export class MeetingsService {
   private readonly meetings = new Map<string, Meeting>();
   private activeMeetingId: string | null = null;
 
-  createMeeting(url: string, botName: string, platform: string): Meeting {
+  registerMeeting(
+    meetingId: string,
+    url: string,
+    botName: string,
+    platform: string,
+  ): Meeting {
     if (this.activeMeetingId) {
       throw new BadRequestException(
         'Уже есть активная встреча. Остановите бота перед запуском новой.',
@@ -24,7 +25,7 @@ export class MeetingsService {
     }
 
     const meeting: Meeting = {
-      id: randomUUID(),
+      id: meetingId,
       url,
       platform,
       botName,
@@ -34,7 +35,7 @@ export class MeetingsService {
 
     this.meetings.set(meeting.id, meeting);
     this.activeMeetingId = meeting.id;
-    this.logger.log(`Создана встреча ${meeting.id} (${platform})`);
+    this.logger.log(`Зарегистрирована встреча ${meeting.id} (${platform})`);
 
     return meeting;
   }

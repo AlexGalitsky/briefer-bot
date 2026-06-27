@@ -1,9 +1,11 @@
 import { Module } from '@nestjs/common';
+import { BackendModule } from 'src/backend/backend.module';
+import { MeetingsModule } from 'src/meetings/meetings.module';
 import { AudiorayClient } from './audioray.client';
-import { TranscriptAggregatorService } from './transcript-aggregator.service';
 
 @Module({
-  providers: [AudiorayClient, TranscriptAggregatorService],
-  exports: [AudiorayClient, TranscriptAggregatorService],
+  imports: [BackendModule, MeetingsModule],
+  providers: [AudiorayClient],
+  exports: [AudiorayClient],
 })
 export class TranscriptionModule {}

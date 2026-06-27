@@ -5,6 +5,12 @@ export default () => ({
       process.env.AUDIORAY_URL ??
       'http://localhost:3000/api/whisper/transcribe',
   },
+  backend: {
+    url: process.env.BACKEND_URL ?? 'http://localhost:5000',
+  },
+  internal: {
+    apiToken: process.env.INTERNAL_API_TOKEN ?? 'dev-internal-token',
+  },
   bot: {
     defaultName: process.env.BOT_DEFAULT_NAME ?? 'Аура',
     chunkIntervalMs: Number(process.env.BOT_CHUNK_INTERVAL_MS ?? 6000),
@@ -13,6 +19,5 @@ export default () => ({
   },
   paths: {
     recordings: process.env.RECORDINGS_PATH ?? 'recordings',
-    transcripts: process.env.TRANSCRIPTS_PATH ?? 'transcripts',
   },
 });

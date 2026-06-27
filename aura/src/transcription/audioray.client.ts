@@ -1,9 +1,9 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
+import { BackendClient } from 'src/backend/backend.client';
 import { AppConfigService } from 'src/config/app-config.service';
 import { MeetingsService } from 'src/meetings/meetings.service';
-import { TranscriptAggregatorService } from './transcript-aggregator.service';
 
 export interface AudiorayTranscribeResponse {
   speaker: string;
@@ -20,7 +20,7 @@ export class AudiorayClient implements OnModuleInit {
   constructor(
     private readonly config: AppConfigService,
     private readonly meetingsService: MeetingsService,
-    private readonly transcriptAggregator: TranscriptAggregatorService,
+    private readonly backendClient: BackendClient,
   ) {
     this.outputFolder = path.join(
       process.cwd(),
@@ -77,11 +77,13 @@ export class AudiorayClient implements OnModuleInit {
     this.logger.log(`[Audioray] ${data.speaker}: "${data.text}"`);
 
     if (data.text?.trim()) {
-      this.transcriptAggregator.addSegment(meetingId, {
+      void this.backendClient.pushTranscriptSegment({
+        meetingId,
         speaker: data.speaker,
         text: data.text.trim(),
         startedAt: data.timestamp,
         durationSec: Number.parseFloat(data.processingTimeSec) || 0,
+        source: 'audioray',
       });
     }
 

@@ -1,13 +1,15 @@
 # Аудит проектов Briefer Bot
 
-**Дата:** 27 июня 2026  
-**Область:** `aura` (бот для видеосозвонов) + `audioray` (локальный Whisper-сервис)  
+**Дата:** 27 июня 2026 (обновлено)  
+**Область:** `backend` (публичный API, БД) + `aura` (бот для видеосозвонов) + `audioray` (локальный Whisper) + `frontend` (React, фаза 6)  
 **Цель продукта:** подключение к созвонам, ведение стенограммы, дальнейшая выжимка и постановка задач (Trello и др.)
 
 **Приоритеты заказчика сейчас:**
 1. Качество распознавания речи
 2. Удобство расширения функционала
-3. Позже — админка, БД, авторизация (после стабилизации ядра)
+3. Backend на отдельном сервере (TypeORM) — единая точка входа для клиентов
+4. Aura — внутренний worker, вызывается только через Backend REST API
+5. React-фронтенд — фаза 6
 
 ---
 
@@ -21,7 +23,7 @@
 6. [Качество распознавания](#6-качество-распознавания)
 7. [План рефакторинга](#7-план-рефакторинга)
 8. [Дорожная карта](#8-дорожная-карта)
-9. [Подготовка к БД, админке и авторизации](#9-подготовка-к-бд-админке-и-авторизации)
+9. [Backend, TypeORM и роли сервисов](#9-backend-typeorm-и-роли-сервисов)
 
 ---
 
@@ -29,66 +31,89 @@
 
 | Область | Оценка | Комментарий |
 |---------|--------|-------------|
-| Идея и разделение сервисов | ✅ Хорошо | Бот и распознавание разделены — правильно для масштабирования |
+| Идея и разделение сервисов | ✅ Хорошо | Бот, STT и публичный API разделены — backend (ф.4), aura, audioray |
+| **backend** | 🟡 Scaffold | NestJS starter; TypeORM и AuraClient — фаза 4 |
 | Yandex Telemost | 🟡 Рабочий прототип | Вход в созвон, захват аудио, трекинг спикеров |
 | Google Meet | 🔴 Заглушка | Только `goto`, без join и аудио |
-| Интеграция Aura ↔ Audioray | 🔴 Сломана | Несовпадение полей API, URL, портов |
-| Качество STT | 🟡 Среднее | После фиксов whisper.cpp стало лучше; остаются галлюцинации и чанки по 4 с |
+| Интеграция Aura ↔ Audioray | ✅ Работает | Фаза 0 закрыта |
+| Качество STT | 🟡 Среднее | Worker, VAD, контекстный prompt; фаза 1 закрыта |
+| Стенограмма API | ✅ В Aura | Фаза 2; миграция в backend — фаза 4 |
+| Архитектура кода | ✅ Рефакторинг | Фаза 3 закрыта |
 | Тесты | 🔴 Почти нет | Только boilerplate NestJS |
-| Конфигурация | 🔴 Хардкод | URL, порты, модель, селекторы |
-| Расширяемость | 🟡 Заложена | Strategy-паттерн для ботов, но без модулей/DTO/очередей |
+| Конфигурация | 🟡 Env | AppConfigService в aura/audioray; backend — TBD |
+| Расширяемость | ✅ Заложена | Strategy для ботов; backend как единая точка входа |
 
-**Главный вывод:** ядро (Telemost + Whisper) доказало работоспособность, но интеграционный слой и эксплуатационная обвязка требуют системной доработки до того, как подключать БД и админку.
+**Главный вывод:** ядро (Telemost + Whisper) доказало работоспособность; фазы 0–3 закрыты. Следующий шаг — **backend** на отдельном сервере (TypeORM), Aura как internal worker, React — в фазе 6.
 
 ---
 
 ## 2. Архитектура системы
 
+### Целевая (после фазы 4)
+
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                         Видеосозвон                              │
-│              (Yandex Telemost / Google Meet)                     │
+│  FRONTEND (фаза 6, React)                                        │
+│  UI: встречи, live-стенограмма, выжимки, задачи                  │
 └────────────────────────────┬────────────────────────────────────┘
-                             │ DOM: <audio> + MediaRecorder
+                             │ HTTPS REST (+ SSE/WebSocket)
                              ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│  AURA (порт 4000)                                                │
+│  BACKEND — отдельный сервер (порт 5000*)                          │
+│  NestJS + TypeORM + PostgreSQL                                   │
+│  ┌──────────────┐  ┌─────────────┐  ┌────────────────────────┐  │
+│  │ Auth (JWT)   │  │ Meetings    │  │ TranscriptStore (БД)   │  │
+│  │ Users/Roles  │  │ CRUD        │  │ Summaries, Tasks (ф.5)   │  │
+│  └──────────────┘  └──────┬──────┘  └────────────────────────┘  │
+│                            │                                      │
+│                     ┌──────▼──────┐                               │
+│                     │ AuraClient  │  internal REST                │
+│                     └──────┬──────┘                               │
+└────────────────────────────┼──────────────────────────────────────┘
+                             │ private network
+                             ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  AURA — worker-сервер (порт 4000)                                │
+│  Только бот и захват аудио; публичного API нет                     │
 │  ┌──────────────┐   ┌─────────────┐   ┌──────────────────────┐  │
-│  │ BotController│ → │  BotService │ → │ YandexTelemostBot    │  │
-│  │ POST /start  │   │  (strategy) │   │ GoogleMeetBot (stub) │  │
-│  └──────────────┘   └─────────────┘   └──────────┬───────────┘  │
-│                                                    │              │
+│  │ BotController│ → │  BotService │ → │ Telemost / Meet bots │  │
+│  │ (internal)   │   │  (strategy) │   └──────────┬───────────┘  │
+│  └──────────────┘   └─────────────┘              │              │
 │                           ┌────────────────────────┘              │
 │                           ▼                                       │
 │                  ┌─────────────────┐                              │
-│                  │ AudiorayService │ → recordings/*.webm (локально)│
+│                  │ AudiorayClient  │ → recordings/*.webm          │
 │                  └────────┬────────┘                              │
 └───────────────────────────┼──────────────────────────────────────┘
                             │ HTTP multipart: file + speaker
                             ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│  AUDIORAY (порт 3000)                                            │
-│  ┌──────────────────┐   ┌─────────────────────────────────────┐   │
-│  │ WhisperController│ → │ WhisperService                      │   │
-│  │ POST /transcribe │   │ WebM → FFmpeg → VAD → whisper.cpp  │   │
-│  └──────────────────┘   │ → фильтр галлюцинаций → transcripts/│   │
-│                          └─────────────────────────────────────┘   │
+│  AUDIORAY — STT-сервер (порт 3000), рядом с Aura или отдельно    │
+│  WebM → FFmpeg → VAD → whisper.cpp → фильтр → transcripts/       │
 └─────────────────────────────────────────────────────────────────┘
-                            │
-                            ▼ (планируется)
-              ┌─────────────────────────────┐
-              │ БД, WebSocket, админка,      │
-              │ выжимка, Trello              │
-              └─────────────────────────────┘
+
+* порты — примеры для dev; в prod — за reverse proxy
 ```
 
-### Поток данных одного чанка
+### Роли сервисов
 
-1. Браузер в Telemost пишет 4 с WebM/Opus через `MediaRecorder`
-2. Base64 передаётся в NestJS через `page.exposeFunction`
-3. Aura сохраняет `.webm` в `recordings/` и шлёт POST на Audioray
-4. Audioray конвертирует в WAV 16 kHz mono, проверяет громкость, запускает whisper.cpp
-5. Результат фильтруется, пишется в `transcripts/`, возвращается JSON
+| Сервис | Сервер | Кто вызывает | Ответственность |
+|--------|--------|--------------|-----------------|
+| **backend** | Отдельный | Frontend, внешние интеграции | Публичный API, auth, БД (TypeORM), оркестрация |
+| **aura** | Отдельный (worker) | Только backend | Puppeteer-бот, захват аудио, прокси в Audioray |
+| **audioray** | Рядом с aura | Только aura | Whisper STT, очередь, health |
+| **frontend** | CDN / static | Пользователь | React UI (фаза 6) |
+
+### Поток данных одного чанка (ядро, фазы 0–3)
+
+1. Backend вызывает `POST /bot/start` на Aura (с `meetingId` из БД)
+2. Браузер в Telemost пишет 6 с WebM/Opus через `MediaRecorder`
+3. Base64 передаётся в NestJS через `page.exposeFunction`
+4. Aura сохраняет `.webm` в `recordings/` и шлёт POST на Audioray
+5. Audioray конвертирует в WAV 16 kHz mono, VAD, whisper.cpp, фильтр
+6. **Сейчас:** сегмент в Aura (`TranscriptAggregator` + jsonl)  
+   **Фаза 4:** Aura пушит сегмент в Backend → TypeORM → PostgreSQL
+7. Frontend (фаза 6) читает стенограмму через Backend API / SSE
 
 ---
 
@@ -409,79 +434,218 @@ src/
     └── transcript-store.interface.ts  # FileStore → DbStore
 ```
 
-### Фаза 4 — БД, админка, auth (после стабилизации ядра)
+### Фаза 4 — Backend + TypeORM (2–3 недели)
 
-См. [раздел 9](#9-подготовка-к-бд-админке-и-авторизации).
+> Публичный API и персистентность — на **отдельном сервере**. Aura остаётся internal worker.
+
+#### Backend (`backend/`)
+
+- [x] NestJS scaffold → модули: `config`, `auth`, `users`, `meetings`, `transcripts`, `aura-client`
+- [x] **TypeORM** + PostgreSQL: entities, `DB_SYNCHRONIZE` для dev (миграции — перед prod)
+- [x] Entities: `User`, `Meeting`, `TranscriptSegment`, `OtpChallenge`
+- [x] `AuraClient` — HTTP-клиент к internal REST Aura (`AURA_URL` env)
+- [x] Публичные эндпоинты:
+  - `POST /meetings` → создать встречу в БД → `AuraClient.startBot(meetingId, url)`
+  - `POST /meetings/:id/stop` → `AuraClient.stopBot()`
+  - `GET /meetings/:id/transcript` — из БД
+  - `GET /meetings/:id/transcript/stream` — SSE из БД
+- [x] Auth: телефон + SMS OTP (`SmsGateway`), JWT, TOTP authenticator (setup/confirm)
+- [x] `.env.example`: DB, JWT, AURA_URL, INTERNAL_API_TOKEN
+- [x] Health: `GET /health` (db + aura reachability)
+- [x] Internal API: `POST /internal/transcript-segments`, `PATCH /internal/meetings/:id/status`
+
+#### Aura (рефакторинг под internal worker)
+
+- [x] `InternalApiGuard` + `X-Internal-Token` на всех эндпоинтах (кроме `GET /`)
+- [x] `POST /bot/start` принимает `meetingId` от backend
+- [x] `BackendClient` — пуш сегментов и статусов в backend
+- [x] `GET /bot/status` для health-check backend
+- [x] Удалены `GET /meetings/*` и `TranscriptAggregatorService` — стенограмма только в backend
+
+#### Audioray
+
+- [x] Без изменений в публичном API; остаётся internal для Aura
+
+#### Критерий готовности
+
+Клиент (curl/Postman) бьётся в **backend** → бот стартует на aura-сервере → сегменты появляются в PostgreSQL.
+
+```
+backend/
+src/
+├── config/
+├── auth/
+├── users/
+│   └── entities/user.entity.ts
+├── meetings/
+│   ├── entities/meeting.entity.ts
+│   ├── meetings.controller.ts    # публичный API
+│   └── meetings.service.ts
+├── transcripts/
+│   ├── entities/transcript-segment.entity.ts
+│   └── transcripts.service.ts
+└── aura-client/
+    └── aura.client.ts            # REST → aura:4000
+```
+
+### Фаза 5 — Резерв (TBD)
+
+> Зарезервирована. Возможное наполнение — уточнить перед стартом.
+
+- [ ] Выжимка встречи (LLM) → `Summary` entity
+- [ ] Задачи / интеграция Trello → `Task` entity
+- [ ] BullMQ + Redis для фоновых джоб (summarization, export)
+- [ ] Webhook-и, уведомления, экспорт (PDF, Notion)
+- [ ] Google Meet — полная реализация бота
+
+### Фаза 6 — React Frontend
+
+- [ ] Отдельный проект `frontend/` (Vite + React + TypeScript)
+- [ ] Только **backend** как API base URL — прямых вызовов Aura/Audioray нет
+- [ ] Экраны: login, список встреч, старт/стоп, live-стенограмма (SSE)
+- [ ] Фаза 5+: просмотр выжимок и задач
+- [ ] Auth: JWT в httpOnly cookie или Bearer (согласовать с backend)
 
 ---
 
 ## 8. Дорожная карта
 
 ```
-Сейчас          Фаза 0           Фаза 1           Фаза 2           Фаза 4
-  │               │                │                │                │
-  ▼               ▼                ▼                ▼                ▼
-Прототип  →  Связка работает → Качество STT →  Стенограмма  →  БД + админка
-Telemost     env, API fix       worker, VAD     API, WS live     auth, Trello
+Фазы 0–3 ✅     Фаза 4              Фаза 5         Фаза 6
+    │              │                   │              │
+    ▼              ▼                   ▼              ▼
+Ядро STT    →  Backend+TypeORM  →  TBD (резерв) →  React UI
+Telemost       Aura internal        LLM/Trello?     только → backend
 ```
 
 | Этап | Результат | Критерий готовности |
 |------|-----------|---------------------|
-| **0** | E2E без 400 ошибок | Бот в Telemost → текст в transcripts |
-| **1** | Стабильное RT распознавание | Нет отставания > 1 чанка, нет галлюцинаций на тишине |
-| **2** | Стенограмма как API | Можно получить полный текст встречи по ID |
+| **0** | E2E без 400 ошибок | Бот в Telemost → текст в transcripts ✅ |
+| **1** | Стабильное RT распознавание | Нет отставания > 1 чанка, нет галлюцинаций на тишине ✅ |
+| **2** | Стенограмма как API | Можно получить полный текст встречи по ID ✅ |
 | **3** | Чистая архитектура | Новая платформа = новый bot + selectors ✅ |
-| **4** | Продукт | Админка, пользователи, история встреч |
+| **4** | Backend + БД | Публичный API на backend; Aura — internal worker; TypeORM ✅ |
+| **5** | Резерв | TBD |
+| **6** | UI | React-фронтенд через backend REST |
+
+### Развёртывание (целевое)
+
+| Сервис | Хост | Порт (dev) | БД / зависимости |
+|--------|------|------------|------------------|
+| backend | app-server | 5000 | PostgreSQL |
+| aura | bot-worker | 4000 | Puppeteer, Chromium |
+| audioray | bot-worker* | 3000 | whisper.cpp, ffmpeg, модель |
+| frontend | static/CDN | 5173 | — |
+
+\* audioray может жить на том же хосте, что aura (низкая latency для STT)
 
 ---
 
-## 9. Подготовка к БД, админке и авторизации
+## 9. Backend, TypeORM и роли сервисов
 
-### 9.1 Схема данных (черновик)
+### 9.1 Схема данных (TypeORM entities)
 
-```sql
--- users (фаза 4)
-users (id, email, password_hash, role, created_at)
+```typescript
+// users
+@Entity('users')
+class User {
+  id: uuid
+  email: string
+  passwordHash: string
+  role: 'admin' | 'user'
+  createdAt: Date
+}
 
--- meetings
-meetings (id, platform, url, bot_name, status, started_at, ended_at, created_by)
+// meetings
+@Entity('meetings')
+class Meeting {
+  id: uuid
+  platform: 'yandex-telemost' | 'google-meet'
+  url: string
+  botName: string
+  status: 'pending' | 'active' | 'ended' | 'failed'
+  startedAt?: Date
+  endedAt?: Date
+  createdBy: User
+  createdAt: Date
+}
 
--- transcript_segments
-transcript_segments (id, meeting_id, speaker, text, timestamp, duration_sec, created_at)
+// transcript_segments
+@Entity('transcript_segments')
+class TranscriptSegment {
+  id: uuid
+  meeting: Meeting
+  speaker: string
+  text: string
+  startedAt: Date
+  durationSec: number
+  source: 'audioray'
+  createdAt: Date
+}
 
--- summaries (будущее)
-summaries (id, meeting_id, content, model, created_at)
-
--- tasks (Trello, будущее)
-tasks (id, meeting_id, title, description, trello_card_id, created_at)
+// summaries, tasks — фаза 5 (резерв)
 ```
 
-JSONL из `transcripts/` уже соответствует `transcript_segments` — миграция тривиальна.
+JSONL из `aura/transcripts/` и `audioray/transcripts/` — источник для одноразовой миграции в PostgreSQL.
 
-### 9.2 Точки расширения (уже есть в коде)
+### 9.2 Границы ответственности
 
-| Место | Файл | Что добавить |
-|-------|------|--------------|
-| После транскрибации | `whisper.controller.ts:35` | `TranscriptStore.save(segment)` |
-| После ответа Audioray | `audioray.service.ts:55` | `TranscriptAggregator.add(segment)` |
-| Старт встречи | `bot.controller.ts:10` | `MeetingsService.create()` → `meetingId` |
-| Сохранение транскриптов | `whisper.service.ts:186` | Интерфейс `TranscriptStore` |
+| Данные / действие | Где живёт | Примечание |
+|-------------------|-----------|------------|
+| Пользователи, JWT | **backend** | TypeORM |
+| Встречи (CRUD, история) | **backend** | TypeORM |
+| Сегменты стенограммы | **backend** | TypeORM; Aura пушит после STT |
+| Статус бота (runtime) | **aura** | In-memory + health |
+| Захват аудио, Puppeteer | **aura** | Не экспонировать наружу |
+| Whisper inference | **audioray** | Только для aura |
+| UI | **frontend** (ф.6) | Только backend API |
 
-### 9.3 Рекомендуемый стек (фаза 4)
+### 9.3 Контракт Backend ↔ Aura (черновик)
+
+```http
+# Backend → Aura (internal)
+POST /bot/start
+  { meetingId, url, botName }
+  → { success, platform }
+
+POST /bot/stop
+  → { success, meetingId }
+
+GET /bot/status
+  → { active, platform, meetingId? }
+
+# Aura → Backend (internal)
+POST /internal/transcript-segments
+  { meetingId, speaker, text, startedAt, durationSec }
+  → 201
+```
+
+### 9.4 Рекомендуемый стек
 
 | Компонент | Выбор | Почему |
 |-----------|-------|--------|
-| ORM | Prisma | Быстрый старт, миграции, TypeScript |
-| Auth | `@nestjs/passport` + JWT | Стандарт для NestJS admin API |
-| Admin UI | Отдельный Next.js или NestJS + React | Не смешивать с bot process |
-| Очередь | BullMQ + Redis | Транскрибация, summarization, Trello |
-| WebSocket | `@nestjs/websockets` | Live-стенограмма |
+| ORM | **TypeORM** | Требование; нативная интеграция с NestJS |
+| БД | PostgreSQL | JSON, надёжность, миграции TypeORM |
+| Auth | `@nestjs/passport` + JWT | Стандарт для NestJS API |
+| Frontend | React + Vite (ф.6) | Отдельный проект |
+| Очередь (ф.5) | BullMQ + Redis | Summarization, Trello |
+| Live-стенограмма | SSE или WebSocket на **backend** | Frontend не знает про Aura |
 
-### 9.4 Что НЕ делать сейчас
+### 9.5 Точки расширения (текущий код → фаза 4)
 
-- Не внедрять БД до фикса Фазы 0–1 — иначе в БД попадёт мусор из галлюцинаций
-- Не строить админку до появления `meetingId` и статусов сессии
-- Не добавлять auth на whisper endpoint до появления reverse proxy / internal network
+| Место | Файл | Что добавить |
+|-------|------|--------------|
+| После транскрибации | `aura/.../audioray.client.ts` | Пуш сегмента в backend |
+| Старт встречи | `backend/.../meetings.service.ts` | Создать Meeting в БД → `AuraClient.start` |
+| Публичный transcript | `backend/.../transcripts.controller.ts` | Читать из TypeORM |
+| Сохранение в audioray | `audioray/.../file-transcript.store.ts` | Оставить как debug-лог |
+
+### 9.6 Что НЕ делать
+
+- Не открывать Aura/Audioray в публичный интернет — только backend и private network
+- Не дублировать meetings/transcripts в Aura после фазы 4 — single source of truth в PostgreSQL
+- Не ставить TypeORM в aura/audioray — ORM только в backend
+- Не начинать фронтенд до стабильного backend API (фаза 4)
 
 ---
 
@@ -523,14 +687,14 @@ this.botService.startBot(body.url, body.name).catch((err) => {
 
 | Приоритет | Файл | Причина |
 |-----------|------|---------|
-| P0 | `aura/src/services/audioray.service.ts` | Сломана интеграция |
-| P0 | `aura/src/bot/bot.controller.ts` | Проглатывание ошибок |
-| P0 | `aura/src/bot/bot.service.ts` | Google Meet URL |
+| P0 | `backend/src/` (новый) | Старт фазы 4: TypeORM, AuraClient |
+| P0 | `aura/src/transcription/audioray.client.ts` | Интеграция STT + пуш в backend (ф.4) |
+| P0 | `aura/src/bot/bot.controller.ts` | Internal API для backend |
 | P1 | `audioray/src/whisper/whisper.service.ts` | Производительность, VAD |
-| P1 | `aura/src/bot/bots/yandex-telemost.bot.ts` | Чанки, спикеры |
-| P1 | `aura/src/bot/bots/base-bot.ts` | mute-audio, media block |
+| P1 | `aura/src/bot/platforms/telemost/telemost.bot.ts` | Чанки, спикеры |
+| P1 | `aura/src/bot/base-bot.ts` | mute-audio, media block |
 | P2 | `audioray/src/whisper/whisper.controller.ts` | Валидация API |
-| P2 | оба `main.ts` | ConfigModule, ValidationPipe |
+| P2 | все `main.ts` | ConfigModule, ValidationPipe |
 
 ---
 

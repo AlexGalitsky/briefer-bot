@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { AppConfigService } from 'src/config/app-config.service';
+import { BackendClient } from 'src/backend/backend.client';
 import { MeetingsService } from 'src/meetings/meetings.service';
 import { BotFactory } from './bot.factory';
 import { BotService } from './bot.service';
@@ -16,18 +16,19 @@ describe('BotService', () => {
           useValue: { create: jest.fn() },
         },
         {
-          provide: MeetingsService,
+          provide: BackendClient,
           useValue: {
-            detectPlatform: jest.fn(),
-            createMeeting: jest.fn(),
-            setStatus: jest.fn(),
-            endActiveMeeting: jest.fn(),
+            updateMeetingStatus: jest.fn(),
           },
         },
         {
-          provide: AppConfigService,
+          provide: MeetingsService,
           useValue: {
-            values: { bot: { defaultName: 'Аура' } },
+            detectPlatform: jest.fn(),
+            registerMeeting: jest.fn(),
+            setStatus: jest.fn(),
+            endActiveMeeting: jest.fn(),
+            getActiveMeeting: jest.fn(),
           },
         },
       ],

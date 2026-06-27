@@ -1,13 +1,3 @@
-export interface TranscriptSegment {
-  id: string;
-  meetingId: string;
-  speaker: string;
-  text: string;
-  startedAt: string;
-  durationSec: number;
-  source: 'audioray';
-}
-
 export type MeetingStatus = 'starting' | 'active' | 'ended' | 'failed';
 
 export interface Meeting {
