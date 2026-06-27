@@ -2,7 +2,7 @@
 
 **Проект:** Briefer Bot — UI для встреч и live-стенограммы  
 **Дата:** 27 июня 2026  
-**Связанные документы:** [AUDIT.md](../AUDIT.md) (общая дорожная карта), [.cursorrules](./.cursorrules) (стек и гайдлайны)
+**Связанные документы:** [docs/roadmap.md](../docs/roadmap.md), [docs/testing.md](../docs/testing.md), [.cursorrules](./.cursorrules)
 
 ---
 
@@ -30,12 +30,15 @@ SPA на React 19: регистрация/вход по телефону, упр
 
 - [x] Scaffold: Vite 8, React 19, TanStack Router + Query
 - [x] shadcn/ui: полный набор компонентов в `src/components/ui/`
-- [x] Tailwind v4 через `src/index.css` (`@import "tailwindcss"`)
+- [x] Tailwind v4 через `src/index.css`
 - [x] Алиас `@/` → `src/`
-- [ ] Интеграция с backend API
-- [ ] Auth flow (OTP + TOTP)
-- [ ] Экраны встреч и стенограммы
-- [ ] `.env.example`, proxy dev → backend
+- [x] Интеграция с backend API (`api-client`, Zod parse)
+- [x] Auth flow (OTP + TOTP step в форме)
+- [x] Экраны встреч и live-стенограммы (SSE)
+- [x] Темы light/dark
+- [x] `.env.example`
+- [ ] `/settings/security` — TOTP setup с QR
+- [ ] Polling fallback при недоступности SSE
 
 ---
 
@@ -125,47 +128,47 @@ Base URL: `VITE_API_URL` (default `http://localhost:5000`)
 
 ### 6.0 — Инфраструктура (1–2 дня)
 
-- [ ] `pnpm add zod @hookform/resolvers`
-- [ ] `src/lib/api-client.ts` — axios, baseURL из env, interceptor 401 → `/login`
-- [ ] **Zod для API:** схемы request/response в `features/*/schemas/`; в `queryFn`/`mutationFn` — `schema.parse(res.data)` (или `safeParse` + нормализованная ошибка)
-- [ ] Паттерн: `parseApiResponse(authResponseSchema, data)` — единая точка валидации
-- [ ] `.env.example`: `VITE_API_URL=http://localhost:5000`
+- [x] `pnpm add zod @hookform/resolvers`
+- [x] `src/lib/api-client.ts` — axios, baseURL из env, interceptor 401 → `/login`
+- [x] **Zod для API:** схемы request/response в `features/*/schemas/`; в `queryFn`/`mutationFn` — `schema.parse(res.data)` (или `safeParse` + нормализованная ошибка)
+- [x] Паттерн: `parseApiResponse(authResponseSchema, data)` — единая точка валидации
+- [x] `.env.example`: `VITE_API_URL=http://localhost:5000`
 - [ ] `vite.config.ts`: proxy `/api` → backend (опционально)
-- [ ] Типы API: `src/features/*/types.ts` или общий `src/types/api.ts`
-- [ ] `AppLayout` + навигация вместо demo `about`
-- [ ] Route guard: `beforeLoad` в TanStack Router — редирект без токена
+- [x] Типы API: `src/features/*/types.ts` или общий `src/types/api.ts`
+- [x] `AppLayout` + навигация вместо demo `about`
+- [x] Route guard: `beforeLoad` в TanStack Router — редирект без токена
 
 ### 6.1 — Auth (2–3 дня)
 
-- [ ] `/register` — телефон → OTP → JWT
-- [ ] `/login` — телефон → OTP → (TOTP если `requiresTotp`) → JWT
-- [ ] Zod-схемы: телефон E.164 / +7, код 6 цифр
-- [ ] `input-otp` (shadcn) для кода SMS
-- [ ] Zustand или context: `accessToken`, `user` (phone, totpEnabled)
+- [x] `/register` — телефон → OTP → JWT
+- [x] `/login` — телефон → OTP → (TOTP если `requiresTotp`) → JWT
+- [x] Zod-схемы: телефон E.164 / +7, код 6 цифр
+- [x] `input-otp` (shadcn) для кода SMS
+- [x] Zustand или context: `accessToken`, `user` (phone, totpEnabled)
 - [ ] `/settings/security` — QR из `otpauthUrl`, подтверждение TOTP
 
 ### 6.2 — Встречи (2–3 дня)
 
-- [ ] `/meetings` — список (`useQuery` meetings)
-- [ ] Форма старта: URL Telemost/Meet + имя бота
-- [ ] Карточка встречи: platform, status, startedAt
-- [ ] Кнопка «Остановить» → `useMutation` stop
-- [ ] Статусы: `pending` | `starting` | `active` | `ended` | `failed` (badge)
+- [x] `/meetings` — список (`useQuery` meetings)
+- [x] Форма старта: URL Telemost/Meet + имя бота
+- [x] Карточка встречи: platform, status, startedAt
+- [x] Кнопка «Остановить» → `useMutation` stop
+- [x] Статусы: `pending` | `starting` | `active` | `ended` | `failed` (badge)
 
 ### 6.3 — Live-стенограмма (2–3 дня)
 
-- [ ] `/meetings/$meetingId` — загрузка transcript (`transcriptResponseSchema`) + live stream
-- [ ] **SSE с Bearer:** не нативный `EventSource`, а `fetch` + stream (см. раздел ниже) — заголовок `Authorization` работает
-- [ ] `TranscriptView`: список сегментов, автоскролл (`message-scroller`)
+- [x] `/meetings/$meetingId` — загрузка transcript (`transcriptResponseSchema`) + live stream
+- [x] **SSE с Bearer:** не нативный `EventSource`, а `fetch` + stream (см. раздел ниже) — заголовок `Authorization` работает
+- [x] `TranscriptView`: список сегментов, автоскролл (`message-scroller`)
 - [ ] Polling fallback если stream упал (`refetchInterval` при `status === 'active'`)
 
 ### 6.4 — Полировка (1–2 дня)
 
-- [ ] Toast (sonner): ошибки API, успех старт/стоп
-- [ ] Empty states (`Empty` component)
-- [ ] Skeleton при загрузке
-- [ ] Mobile-first layout (sidebar → sheet на мобиле)
-- [ ] Тёмная тема (`next-themes` — уже в deps)
+- [x] Toast (sonner): ошибки API, успех старт/стоп
+- [x] Empty states (`Empty` component)
+- [x] Skeleton при загрузке
+- [x] Mobile-first layout (sidebar → sheet на мобиле)
+- [x] Тёмная тема (`next-themes` — уже в deps)
 
 ### 6.5 — После фазы 5 (резерв)
 

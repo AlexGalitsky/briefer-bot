@@ -1,17 +1,45 @@
 # Backend (Briefer)
 
-Публичный API: auth, встречи, стенограммы. TypeORM + PostgreSQL.
+Публичный API: аутентификация, встречи, стенограммы. NestJS + TypeORM + PostgreSQL.
 
-## Запуск
+Единственная точка входа для Frontend и внешних клиентов.
+
+## Требования
+
+- Node.js 20+
+- PostgreSQL 14+
+
+## Установка и запуск
 
 ```bash
-cp .env.example .env
-# Поднимите PostgreSQL и создайте БД briefer
 npm install
+cp .env.example .env
+# Создайте БД: createdb briefer
 npm run start:dev
 ```
 
-При `DB_SYNCHRONIZE=true` схема создаётся автоматически (только dev).
+Порт по умолчанию: **5000**.
+
+При `DB_SYNCHRONIZE=true` схема создаётся автоматически (**только dev**).
+
+## Конфигурация (`.env`)
+
+```env
+PORT=5000
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=postgres
+DB_PASSWORD=postgres
+DB_NAME=briefer
+DB_SYNCHRONIZE=true
+
+JWT_SECRET=change-me
+AUTH_DEV_EXPOSE_OTP=true
+
+AURA_URL=http://localhost:4000
+INTERNAL_API_TOKEN=dev-internal-token
+CORS_ORIGIN=http://localhost:5173
+```
 
 ## Auth: телефон + OTP + TOTP
 
@@ -25,66 +53,37 @@ POST /auth/otp/verify
 { "phone": "+79991234567", "code": "123456", "purpose": "register" }
 ```
 
-В dev (`AUTH_DEV_EXPOSE_OTP=true`) код OTP возвращается в ответе `send` и пишется в лог SMS-шлюза.
+В dev (`AUTH_DEV_EXPOSE_OTP=true`) код OTP возвращается в ответе.
 
-### Вход
+### Вход с TOTP
 
-```http
-POST /auth/otp/send
-{ "phone": "+79991234567", "purpose": "login" }
+Если включён authenticator, `verify` без `totpCode` вернёт `{ "requiresTotp": true }`.
 
-POST /auth/otp/verify
-{ "phone": "+79991234567", "code": "123456", "purpose": "login" }
-```
-
-Если у пользователя включён TOTP (authenticator app), ответ `verify` без `totpCode`:
-
-```json
-{ "requiresTotp": true, "phone": "+79991234567" }
-```
-
-Повторите с `totpCode`:
-
-```json
-{ "phone": "+79991234567", "code": "123456", "purpose": "login", "totpCode": "654321" }
-```
-
-### Настройка TOTP (Google Authenticator)
+### Настройка TOTP
 
 ```http
-POST /auth/totp/setup
-Authorization: Bearer <token>
-→ { "otpauthUrl": "otpauth://totp/..." }
-
-POST /auth/totp/confirm
-{ "code": "123456" }
-
+POST /auth/totp/setup    # Bearer → otpauthUrl
+POST /auth/totp/confirm  # { code }
 DELETE /auth/totp
 ```
 
-### Архитектура SMS
+SMS: `ConsoleSmsGateway` в dev; prod — Twilio/SMS.ru через DI.
 
-- `SmsGateway` — интерфейс (`auth/sms/sms-gateway.interface.ts`)
-- `ConsoleSmsGateway` — dev-реализация (лог в консоль)
-- Prod: подключите провайдера (Twilio, SMS.ru) через DI в `AuthModule`
-
-## Meetings (требуется JWT)
+## Meetings (JWT)
 
 ```http
 POST /meetings
-Authorization: Bearer <token>
 { "url": "https://telemost.yandex.ru/j/...", "botName": "Аура" }
 
 POST /meetings/:id/stop
-
-GET /meetings
-GET /meetings/:id/transcript
-GET /meetings/:id/transcript/stream   # SSE
+GET  /meetings
+GET  /meetings/:id/transcript
+GET  /meetings/:id/transcript/stream   # SSE
 ```
 
 ## Internal API (Aura → Backend)
 
-Заголовок: `X-Internal-Token: <INTERNAL_API_TOKEN>`
+`X-Internal-Token: <INTERNAL_API_TOKEN>`
 
 ```http
 POST /internal/transcript-segments
@@ -96,3 +95,30 @@ PATCH /internal/meetings/:id/status
 ```http
 GET /health
 ```
+
+## Структура
+
+```
+src/
+├── auth/
+├── users/
+├── meetings/
+├── transcripts/
+├── aura-client/
+├── internal/
+└── config/
+```
+
+## Скрипты
+
+| Команда | Описание |
+|---------|----------|
+| `npm run start:dev` | Dev |
+| `npm run build` | Сборка |
+| `npm run test` | Unit-тесты |
+
+## См. также
+
+- [QUICK_START.md](../QUICK_START.md)
+- [docs/architecture.md](../docs/architecture.md)
+- [frontend/README.md](../frontend/README.md)
