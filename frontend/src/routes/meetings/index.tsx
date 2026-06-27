@@ -28,36 +28,38 @@ function MeetingsPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Встречи</h1>
-        <p className="text-muted-foreground">
+        <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Встречи</h1>
+        <p className="mt-1 text-sm text-muted-foreground md:text-base">
           Подключайте бота к созвонам и смотрите стенограмму
         </p>
       </div>
 
-      <StartMeetingForm />
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] lg:items-start">
+        <StartMeetingForm />
 
-      <section className="space-y-4">
-        <h2 className="text-lg font-semibold">История</h2>
-        {isLoading && (
-          <div className="space-y-3">
-            <Skeleton className="h-28 w-full" />
-            <Skeleton className="h-28 w-full" />
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold">История</h2>
+          {isLoading && (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+              <Skeleton className="h-28 w-full" />
+              <Skeleton className="h-28 w-full" />
+            </div>
+          )}
+          {!isLoading && data?.meetings.length === 0 && (
+            <p className="text-sm text-muted-foreground">Встреч пока нет</p>
+          )}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
+            {data?.meetings.map((meeting) => (
+              <MeetingCard
+                key={meeting.id}
+                meeting={meeting}
+                onStop={handleStop}
+                stopping={stopMeeting.isPending}
+              />
+            ))}
           </div>
-        )}
-        {!isLoading && data?.meetings.length === 0 && (
-          <p className="text-sm text-muted-foreground">Встреч пока нет</p>
-        )}
-        <div className="grid gap-4">
-          {data?.meetings.map((meeting) => (
-            <MeetingCard
-              key={meeting.id}
-              meeting={meeting}
-              onStop={handleStop}
-              stopping={stopMeeting.isPending}
-            />
-          ))}
-        </div>
-      </section>
+        </section>
+      </div>
     </div>
   )
 }

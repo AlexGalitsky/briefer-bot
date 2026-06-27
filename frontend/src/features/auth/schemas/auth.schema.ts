@@ -61,7 +61,20 @@ export const verifyOtpResponseSchema = z.union([
   verifyOtpSuccessSchema,
 ])
 
+export const totpSetupResponseSchema = z.object({
+  otpauthUrl: z.string(),
+})
+
+export const totpConfirmResponseSchema = z.object({
+  totpEnabled: z.literal(true),
+})
+
+export const totpDisableResponseSchema = z.object({
+  totpEnabled: z.literal(false),
+})
+
 export type OtpPurpose = z.infer<typeof otpPurposeSchema>
 export type PublicUser = z.infer<typeof publicUserSchema>
 export type SendOtpResponse = z.infer<typeof sendOtpResponseSchema>
 export type VerifyOtpResponse = z.infer<typeof verifyOtpResponseSchema>
+export type TotpSetupResponse = z.infer<typeof totpSetupResponseSchema>

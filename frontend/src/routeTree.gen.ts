@@ -13,6 +13,7 @@ import { Route as RegisterRouteImport } from './routes/register'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as MeetingsIndexRouteImport } from './routes/meetings/index'
+import { Route as SettingsSecurityRouteImport } from './routes/settings/security'
 import { Route as MeetingsMeetingIdRouteImport } from './routes/meetings/$meetingId'
 
 const RegisterRoute = RegisterRouteImport.update({
@@ -35,6 +36,11 @@ const MeetingsIndexRoute = MeetingsIndexRouteImport.update({
   path: '/meetings/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SettingsSecurityRoute = SettingsSecurityRouteImport.update({
+  id: '/settings/security',
+  path: '/settings/security',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const MeetingsMeetingIdRoute = MeetingsMeetingIdRouteImport.update({
   id: '/meetings/$meetingId',
   path: '/meetings/$meetingId',
@@ -46,6 +52,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/meetings/$meetingId': typeof MeetingsMeetingIdRoute
+  '/settings/security': typeof SettingsSecurityRoute
   '/meetings/': typeof MeetingsIndexRoute
 }
 export interface FileRoutesByTo {
@@ -53,6 +60,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/meetings/$meetingId': typeof MeetingsMeetingIdRoute
+  '/settings/security': typeof SettingsSecurityRoute
   '/meetings': typeof MeetingsIndexRoute
 }
 export interface FileRoutesById {
@@ -61,6 +69,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/meetings/$meetingId': typeof MeetingsMeetingIdRoute
+  '/settings/security': typeof SettingsSecurityRoute
   '/meetings/': typeof MeetingsIndexRoute
 }
 export interface FileRouteTypes {
@@ -70,15 +79,23 @@ export interface FileRouteTypes {
     | '/login'
     | '/register'
     | '/meetings/$meetingId'
+    | '/settings/security'
     | '/meetings/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/register' | '/meetings/$meetingId' | '/meetings'
+  to:
+    | '/'
+    | '/login'
+    | '/register'
+    | '/meetings/$meetingId'
+    | '/settings/security'
+    | '/meetings'
   id:
     | '__root__'
     | '/'
     | '/login'
     | '/register'
     | '/meetings/$meetingId'
+    | '/settings/security'
     | '/meetings/'
   fileRoutesById: FileRoutesById
 }
@@ -87,6 +104,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   RegisterRoute: typeof RegisterRoute
   MeetingsMeetingIdRoute: typeof MeetingsMeetingIdRoute
+  SettingsSecurityRoute: typeof SettingsSecurityRoute
   MeetingsIndexRoute: typeof MeetingsIndexRoute
 }
 
@@ -120,6 +138,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MeetingsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/settings/security': {
+      id: '/settings/security'
+      path: '/settings/security'
+      fullPath: '/settings/security'
+      preLoaderRoute: typeof SettingsSecurityRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/meetings/$meetingId': {
       id: '/meetings/$meetingId'
       path: '/meetings/$meetingId'
@@ -135,6 +160,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   RegisterRoute: RegisterRoute,
   MeetingsMeetingIdRoute: MeetingsMeetingIdRoute,
+  SettingsSecurityRoute: SettingsSecurityRoute,
   MeetingsIndexRoute: MeetingsIndexRoute,
 }
 export const routeTree = rootRouteImport

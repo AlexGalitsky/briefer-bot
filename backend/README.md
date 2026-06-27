@@ -115,7 +115,21 @@ src/
 |---------|----------|
 | `npm run start:dev` | Dev |
 | `npm run build` | Сборка |
-| `npm run test` | Unit-тесты |
+| `npm run migration:run` | Применить миграции |
+| `npm run migration:revert` | Откатить последнюю миграцию |
+| `npm run migration:show` | Статус миграций |
+
+## Миграции
+
+```bash
+# Новая БД (prod/staging)
+DB_SYNCHRONIZE=false DB_MIGRATE=true npm run start:prod
+
+# Или вручную
+npm run migration:run
+```
+
+Файлы: `src/migrations/`, CLI: `src/data-source.ts`
 
 ## См. также
 

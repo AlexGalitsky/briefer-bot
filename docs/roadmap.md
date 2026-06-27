@@ -86,8 +86,8 @@
 - [x] **6.2** Meetings: список, старт/стоп
 - [x] **6.3** Live-стенограмма: SSE + TranscriptView
 - [x] **6.4** Темы light/dark
-- [ ] **6.5** `/settings/security` — TOTP setup с QR
-- [ ] **6.6** Polling fallback при недоступности SSE
+- [x] **6.5** `/settings/security` — TOTP setup с QR
+- [x] **6.6** Polling fallback при недоступности SSE
 - [ ] Фаза 5+: выжимки и задачи в UI
 
 ### Критерий готовности фазы 6

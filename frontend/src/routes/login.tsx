@@ -10,16 +10,21 @@ export const Route = createFileRoute('/login')({
 
 function LoginPage() {
   return (
-    <div className="min-h-screen px-4 py-10">
+    <div className="flex min-h-screen flex-col px-4 py-8 sm:px-6 sm:py-10">
       <div className="mb-6 flex justify-end">
         <ThemeToggle />
       </div>
-      <PhoneAuthForm
-        purpose="login"
-        title="Вход"
-        description="Введите номер телефона — пришлём код по SMS"
-        alternateLink={{ to: '/register', label: 'Нет аккаунта? Зарегистрироваться' }}
-      />
+      <div className="mx-auto w-full max-w-md flex-1">
+        <PhoneAuthForm
+          purpose="login"
+          title="Вход"
+          description="Введите номер телефона — пришлём код по SMS"
+          alternateLink={{
+            to: '/register',
+            label: 'Нет аккаунта? Зарегистрироваться',
+          }}
+        />
+      </div>
     </div>
   )
 }

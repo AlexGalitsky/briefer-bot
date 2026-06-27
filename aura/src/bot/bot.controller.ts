@@ -32,7 +32,7 @@ export class BotController {
     }
 
     const botName = body.botName ?? body.name ?? 'Аура';
-    this.botService.validateStart(body.url);
+    this.botService.validateStart(body.url, body.meetingId);
 
     this.botService.registerMeeting(body.meetingId, body.url, botName);
 
@@ -54,8 +54,8 @@ export class BotController {
 
   @Post('stop')
   @HttpCode(HttpStatus.OK)
-  async stop() {
-    return await this.botService.stopBot();
+  async stop(@Body() body: { meetingId?: string } = {}) {
+    return await this.botService.stopBot(body.meetingId);
   }
 
   @Get('status')

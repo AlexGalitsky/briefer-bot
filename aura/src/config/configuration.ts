@@ -16,6 +16,7 @@ export default () => ({
     chunkIntervalMs: Number(process.env.BOT_CHUNK_INTERVAL_MS ?? 6000),
     joinWaitMs: Number(process.env.BOT_JOIN_WAIT_MS ?? 5000),
     selectorTimeoutMs: Number(process.env.BOT_SELECTOR_TIMEOUT_MS ?? 5000),
+    maxConcurrent: Number(process.env.BOT_MAX_CONCURRENT ?? 5),
   },
   paths: {
     recordings: process.env.RECORDINGS_PATH ?? 'recordings',

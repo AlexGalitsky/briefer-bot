@@ -30,6 +30,8 @@ import { UsersModule } from './users/users.module';
         database: config.values.database.name,
         entities: [User, Meeting, TranscriptSegment, OtpChallenge],
         synchronize: config.values.database.synchronize,
+        migrations: [__dirname + '/migrations/*{.ts,.js}'],
+        migrationsRun: config.values.database.migrationsRun,
       }),
     }),
     UsersModule,
