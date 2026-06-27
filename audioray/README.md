@@ -1,98 +1,280 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Audioray
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+Локальный сервис распознавания речи для проекта **briefer-bot**. Принимает короткие аудио-чанки (WebM/Opus) от бота видеоконференций, конвертирует их в WAV и транскрибирует через [whisper.cpp](https://github.com/ggerganov/whisper.cpp).
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+Сервис работает как отдельное NestJS-приложение и вызывается из модуля `aura` по HTTP.
 
-## Description
+## Возможности
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+- Локальная транскрибация без облачных API
+- Поддержка русского языка (`-l ru`)
+- Конвертация WebM → WAV 16 kHz mono PCM через FFmpeg
+- Фильтрация тихих чанков (VAD) и типичных галлюцинаций Whisper
+- Логирование в консоль и сохранение транскриптов в файлы
 
-## Project setup
+## Требования
 
-```bash
-$ npm install
-```
+| Компонент | Версия / примечание |
+|-----------|---------------------|
+| Node.js   | 18+ |
+| npm       | 9+ |
+| FFmpeg    | должен быть доступен в `PATH` (`ffmpeg -version`) |
+| Модель    | `ggml-large-v3-turbo.bin` в папке `models/` |
 
-## Compile and run the project
+Пакет `whisper-node` используется как поставщик скомпилированного бинарника `whisper.cpp`. При первом `npm install` бинарник собирается автоматически (нужен `make`).
+
+На Apple Silicon whisper.cpp использует Metal (GPU). На других платформах — CPU.
+
+## Установка
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+cd audioray
+npm install
 ```
 
-## Run tests
+### Модель Whisper
+
+Скачайте модель и положите в `audioray/models/`:
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+# Пример: large-v3-turbo (~1.6 GB)
+curl -L -o models/ggml-large-v3-turbo.bin \
+  https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo.bin
 ```
 
-## Deployment
+По умолчанию сервис ищет файл:
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+```
+audioray/models/ggml-large-v3-turbo.bin
+```
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+Путь считается относительно корня проекта `audioray` (через `__dirname`), а не от текущей рабочей директории — запускать можно из любого каталога.
+
+## Запуск
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+# Разработка (hot reload)
+npm run start:dev
+
+# Продакшн
+npm run build
+npm run start:prod
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+Порт по умолчанию: **3000**. Переопределяется через переменную окружения:
 
-## Resources
+```bash
+PORT=8000 npm run start:dev
+```
 
-Check out a few resources that may come in handy when working with NestJS:
+## API
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+### `POST /api/whisper/transcribe`
 
-## Support
+Транскрибирует один аудио-чанк.
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+**Content-Type:** `multipart/form-data`
 
-## Stay in touch
+| Поле     | Тип    | Обязательное | Описание |
+|----------|--------|--------------|----------|
+| `file`   | file   | да           | Аудиофайл в формате WebM/Opus |
+| `speaker`| string | да           | Имя говорящего (для логов и транскриптов) |
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+**Пример запроса (curl):**
 
-## License
+```bash
+curl -X POST http://localhost:3000/api/whisper/transcribe \
+  -F "file=@chunk.webm" \
+  -F "speaker=Александр"
+```
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+**Успешный ответ (200):**
+
+```json
+{
+  "speaker": "Александр",
+  "text": "Раз, два, три, четыре, пять.",
+  "processingTimeSec": "2.34",
+  "timestamp": "2026-06-27T13:02:41.586Z"
+}
+```
+
+Если в чанке нет слышимой речи или результат отфильтрован как галлюцинация, поле `text` будет пустой строкой `""`.
+
+**Ошибки:**
+
+| Код | Причина |
+|-----|---------|
+| 400 | Не передан `file` или `speaker` |
+
+## Пайплайн обработки
+
+```
+HTTP POST (WebM/Opus)
+       │
+       ▼
+┌──────────────────┐
+│  FFmpeg          │  → WAV 16 kHz, mono, PCM s16le
+│  temp_audio/     │
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│  VAD             │  → пропуск слишком тихих чанков
+│  (анализ PCM)    │
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│  whisper.cpp     │  → русский язык, без таймстампов
+│  models/*.bin    │
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│  Фильтр          │  → удаление галлюцинаций
+│  галлюцинаций    │
+└────────┬─────────┘
+         │
+         ▼
+   JSON-ответ + запись в transcripts/
+```
+
+### Параметры whisper.cpp
+
+| Флаг | Значение | Назначение |
+|------|----------|------------|
+| `-l ru` | русский | Язык распознавания |
+| `-nt` | — | Текст без таймстампов |
+| `-et 2.8` | — | Порог энтропии (меньше галлюцинаций) |
+| `-lpt -0.5` | — | Порог log-probability |
+| `--prompt` | «Транскрипция русской речи.» | Начальный промпт |
+
+## Структура проекта
+
+```
+audioray/
+├── models/                  # Модели Whisper (.bin), в .gitignore
+├── temp_audio/              # Временные WAV/WebM, в .gitignore
+├── transcripts/             # Сохранённые транскрипты, в .gitignore
+├── src/
+│   ├── main.ts              # Точка входа
+│   ├── app.module.ts
+│   └── whisper/
+│       ├── whisper.module.ts
+│       ├── whisper.controller.ts   # HTTP API
+│       └── whisper.service.ts      # Конвертация, Whisper, логи
+└── package.json
+```
+
+## Логи и транскрипты
+
+При каждом успешном распознавании результат сохраняется в `transcripts/`:
+
+| Файл | Формат |
+|------|--------|
+| `YYYY-MM-DD.txt` | Человекочитаемый лог |
+| `YYYY-MM-DD.jsonl` | JSON Lines для парсинга |
+
+**Пример `.txt`:**
+
+```
+[2026-06-27T13:02:41.586Z] Александр: Раз, два, три, четыре, пять.
+```
+
+**Пример `.jsonl`:**
+
+```json
+{"timestamp":"2026-06-27T13:02:41.586Z","speaker":"Александр","text":"Раз, два, три, четыре, пять.","processingTimeSec":"2.34"}
+```
+
+В консоль пишутся этапы: начало транскрибации, конвертация, время Whisper, итоговый текст, предупреждения о галлюцинациях.
+
+## Интеграция с Aura
+
+Бот в `aura` нарезает аудио из видеоконференции на чанки по **4 секунды** и отправляет их на Audioray.
+
+Настройте URL в `aura/src/services/audioray.service.ts`:
+
+```typescript
+private readonly audiorayServerUrl = 'http://localhost:3000/api/whisper/transcribe';
+```
+
+Запрос должен содержать поля `file` и `speaker`:
+
+```typescript
+formData.append('file', blob, 'chunk.webm');
+formData.append('speaker', speakerName);
+```
+
+> **Важно:** поле должно называться именно `speaker`, не `prompt`.
+
+Рекомендуется не отправлять чанки, где никто не говорит (метка «Тишина» в боте), — это снижает количество пустых запросов и галлюцинаций.
+
+## Галлюцинации Whisper
+
+На тишине и фоновом шуме Whisper может «придумывать» типичные фразы из обучающих субтитров:
+
+- «Редактор субтитров А.Семкин Корректор А.Егорова»
+- «Продолжение следует»
+
+Сервис борется с этим на трёх уровнях:
+
+1. **VAD** — чанки с низкой громкостью не отправляются в Whisper
+2. **Пороги whisper.cpp** — `-et`, `-lpt`
+3. **Пост-фильтр** — известные фразы отбрасываются или вырезаются из текста
+
+Если галлюцинации всё ещё проскакивают, можно:
+- поднять пороги VAD в `hasAudibleSpeech()` (`whisper.service.ts`)
+- добавить фразы в `hallucinationPatterns` / `hallucinationOnlyPhrases`
+- не слать тихие чанки на уровне бота
+
+## Устранение неполадок
+
+### «КРИТИЧЕСКАЯ ОШИБКА: Модель не найдена»
+
+Убедитесь, что файл лежит по пути:
+
+```
+audioray/models/ggml-large-v3-turbo.bin
+```
+
+### Пустой `text` при явной речи
+
+1. Проверьте, что FFmpeg установлен: `ffmpeg -version`
+2. Посмотрите логи — возможно, сработал VAD («Чанк слишком тихий»)
+3. Временно понизьте пороги в `hasAudibleSpeech()`
+
+### Ошибка FFmpeg при конвертации
+
+Входной файл должен быть валидным WebM/Opus. Бот записывает чанки через `MediaRecorder` с `mimeType: 'audio/webm;codecs=opus'`.
+
+### Медленная обработка
+
+Модель `large-v3-turbo` (~1.6 GB) даёт хорошее качество, но медленнее `base`. Для тестов можно заменить модель в `whisper.service.ts` на `ggml-base.bin`.
+
+Первый запрос после старта дольше — загружается модель в память.
+
+### whisper.cpp не собрался
+
+```bash
+cd node_modules/whisper-node/lib/whisper.cpp
+make
+```
+
+На Windows нужен [GNU Make](https://gnuwin32.sourceforge.net/packages/make.htm).
+
+## Скрипты npm
+
+| Команда | Описание |
+|---------|----------|
+| `npm run start` | Запуск |
+| `npm run start:dev` | Запуск с hot reload |
+| `npm run start:prod` | Продакшн (`node dist/main`) |
+| `npm run build` | Сборка TypeScript |
+| `npm run lint` | ESLint |
+| `npm run test` | Unit-тесты |
+
+## Лицензия
+
+UNLICENSED (private).

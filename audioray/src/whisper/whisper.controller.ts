@@ -25,7 +25,10 @@ export class WhisperController {
     const startTime = Date.now();
 
     // Запускаем тяжелую обработку
-    const text = await this.whisperService.transcribeBuffer(file.buffer);
+    const text = await this.whisperService.transcribeBuffer(
+      file.buffer,
+      speaker,
+    );
 
     const duration = ((Date.now() - startTime) / 1000).toFixed(2);
 

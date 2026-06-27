@@ -2,6 +2,7 @@
 /dist
 /node_modules
 /build
+/models
 
 # Logs
 logs
@@ -45,6 +46,8 @@ lerna-debug.log*
 # temp directory
 .temp
 .tmp
+/temp_audio
+/transcripts
 
 # Runtime data
 pids
