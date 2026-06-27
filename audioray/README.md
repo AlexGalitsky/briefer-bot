@@ -120,6 +120,22 @@ audioray/
 | `npm run whisper:build:cuda` | CUDA |
 | `npm run build` | Сборка TypeScript |
 
+## API: выжимка (Ollama)
+
+### `POST /api/summary/generate`
+
+```json
+{ "transcript": "полный текст стенограммы..." }
+```
+
+Ответ: `{ summaryMarkdown, tasks[], model, processingTimeSec }`
+
+Env: `OLLAMA_URL`, `OLLAMA_MODEL` (default `deepseek-r1:14b`), `OLLAMA_TIMEOUT_MS`.
+
+```bash
+ollama pull deepseek-r1:14b
+```
+
 ## Интеграция с Aura
 
 В `aura/.env`:

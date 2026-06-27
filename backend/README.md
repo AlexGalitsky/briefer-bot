@@ -79,6 +79,10 @@ POST /meetings/:id/stop
 GET  /meetings
 GET  /meetings/:id/transcript
 GET  /meetings/:id/transcript/stream   # SSE
+GET  /meetings/:id/summary             # выжимка (Ollama через Audioray)
+POST /meetings/:id/summary/regenerate
+GET  /meetings/:id/tasks
+PATCH /meetings/:id/tasks/:taskId      # { completed: true/false }
 ```
 
 ## Internal API (Aura → Backend)

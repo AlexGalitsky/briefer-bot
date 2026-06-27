@@ -28,4 +28,7 @@ export default () => ({
     url: process.env.AURA_URL ?? 'http://localhost:4000',
     internalToken: process.env.INTERNAL_API_TOKEN ?? 'dev-internal-token',
   },
+  audioray: {
+    url: process.env.AUDIORAY_URL ?? 'http://localhost:3000',
+  },
 });

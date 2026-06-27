@@ -1,14 +1,16 @@
 import {
+  Body,
   Controller,
   Get,
   MessageEvent,
   Param,
+  Patch,
   Post,
-  Body,
   Sse,
 } from '@nestjs/common';
 import { map, Observable } from 'rxjs';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
+import { SummariesService } from 'src/summaries/summaries.service';
 import { User } from 'src/users/entities/user.entity';
 import { TranscriptsService } from 'src/transcripts/transcripts.service';
 import { CreateMeetingDto } from './dto/create-meeting.dto';
@@ -19,6 +21,7 @@ export class MeetingsController {
   constructor(
     private readonly meetingsService: MeetingsService,
     private readonly transcriptsService: TranscriptsService,
+    private readonly summariesService: SummariesService,
   ) {}
 
   @Post()
@@ -79,6 +82,67 @@ export class MeetingsController {
         )
         .join('\n'),
     };
+  }
+
+  @Get(':id/summary')
+  async getSummary(@CurrentUser() user: User, @Param('id') id: string) {
+    await this.meetingsService.findOwnedMeeting(id, user.id);
+    const summary = await this.summariesService.getByMeeting(id);
+
+    return {
+      meetingId: id,
+      summary: summary
+        ? {
+            id: summary.id,
+            status: summary.status,
+            contentMarkdown: summary.contentMarkdown,
+            model: summary.model,
+            processingTimeSec: summary.processingTimeSec,
+            errorMessage: summary.errorMessage,
+            createdAt: summary.createdAt,
+            updatedAt: summary.updatedAt,
+          }
+        : null,
+    };
+  }
+
+  @Post(':id/summary/regenerate')
+  async regenerateSummary(@CurrentUser() user: User, @Param('id') id: string) {
+    await this.meetingsService.findOwnedMeeting(id, user.id);
+    this.summariesService.scheduleRegenerate(id);
+
+    return {
+      meetingId: id,
+      message: 'Генерация выжимки запущена',
+    };
+  }
+
+  @Get(':id/tasks')
+  async getTasks(@CurrentUser() user: User, @Param('id') id: string) {
+    await this.meetingsService.findOwnedMeeting(id, user.id);
+    const tasks = await this.summariesService.getTasksByMeeting(id);
+
+    return {
+      meetingId: id,
+      tasks,
+    };
+  }
+
+  @Patch(':id/tasks/:taskId')
+  async updateTask(
+    @CurrentUser() user: User,
+    @Param('id') id: string,
+    @Param('taskId') taskId: string,
+    @Body() body: { completed: boolean },
+  ) {
+    await this.meetingsService.findOwnedMeeting(id, user.id);
+    const task = await this.summariesService.updateTaskCompleted(
+      id,
+      taskId,
+      body.completed,
+    );
+
+    return { task };
   }
 
   @Sse(':id/transcript/stream')
