@@ -1,10 +1,11 @@
 import { Module } from '@nestjs/common';
+import { MeetingsModule } from 'src/meetings/meetings.module';
 import { BotService } from './bot.service';
 import { BotController } from './bot.controller';
-import { AudiorayService } from 'src/services/audioray.service';
 
 @Module({
-  providers: [BotService, AudiorayService],
+  imports: [MeetingsModule],
+  providers: [BotService],
   exports: [BotService],
   controllers: [BotController],
 })

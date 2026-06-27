@@ -4,20 +4,23 @@ import {
   Logger,
   OnApplicationShutdown,
 } from '@nestjs/common';
-import { IMeetingBot } from './interfaces/meeting-bot.interface';
-import { YandexTelemostBot } from './bots/yandex-telemost.bot';
-import { GoogleMeetBot } from './bots/google-meet.bot';
+import { MeetingsService } from 'src/meetings/meetings.service';
 import { AudiorayService } from 'src/services/audioray.service';
+import { GoogleMeetBot } from './bots/google-meet.bot';
+import { YandexTelemostBot } from './bots/yandex-telemost.bot';
+import { IMeetingBot } from './interfaces/meeting-bot.interface';
 
 @Injectable()
 export class BotService implements OnApplicationShutdown {
   private readonly logger = new Logger(BotService.name);
-  // Храним активного бота (в будущем тут может быть Map<string, IMeetingBot> для мульти-сессий)
   private activeBot: IMeetingBot | null = null;
+  private activeMeetingId: string | null = null;
 
-  constructor(private readonly audiorayService: AudiorayService) {}
+  constructor(
+    private readonly audiorayService: AudiorayService,
+    private readonly meetingsService: MeetingsService,
+  ) {}
 
-  // Автоматическое определение платформы по ссылке
   private getBotStrategy(url: string): IMeetingBot {
     if (url.includes('telemost.yandex')) {
       return new YandexTelemostBot(this.audiorayService);
@@ -41,24 +44,30 @@ export class BotService implements OnApplicationShutdown {
       );
     }
 
-    this.getBotStrategy(url);
+    this.meetingsService.detectPlatform(url);
   }
 
-  async startBot(url: string, botName: string = 'Аура') {
-    this.validateStart(url);
+  createMeeting(url: string, botName: string) {
+    const platform = this.meetingsService.detectPlatform(url);
+    return this.meetingsService.createMeeting(url, botName, platform);
+  }
 
-    // Получаем нужную стратегию на основе URL
+  async startBot(url: string, botName: string, meetingId: string) {
+    this.activeMeetingId = meetingId;
     this.activeBot = this.getBotStrategy(url);
 
     try {
       await this.activeBot.start(url, botName);
-      return { success: true, platform: this.activeBot.platformName };
+      this.meetingsService.setStatus(meetingId, 'active');
+      return { success: true, platform: this.activeBot.platformName, meetingId };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.error(
         `Провал запуска стратегии ${this.activeBot?.platformName}: ${message}`,
       );
+      this.meetingsService.setStatus(meetingId, 'failed');
       this.activeBot = null;
+      this.activeMeetingId = null;
       throw error;
     }
   }
@@ -70,17 +79,21 @@ export class BotService implements OnApplicationShutdown {
 
     await this.activeBot.stop();
     const platform = this.activeBot.platformName;
+    const meeting = this.meetingsService.endActiveMeeting();
     this.activeBot = null;
+    this.activeMeetingId = null;
 
     return {
       success: true,
       message: `Бот платформы ${platform} успешно остановлен.`,
+      meetingId: meeting?.id ?? null,
     };
   }
 
   async onApplicationShutdown() {
     if (this.activeBot) {
       await this.activeBot.stop();
+      this.meetingsService.endActiveMeeting();
     }
   }
 }

@@ -1,6 +1,15 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
+import { MeetingsService } from 'src/meetings/meetings.service';
+import { TranscriptAggregatorService } from 'src/meetings/transcript-aggregator.service';
+
+interface AudiorayTranscribeResponse {
+  speaker: string;
+  text: string;
+  processingTimeSec: string;
+  timestamp: string;
+}
 
 @Injectable()
 export class AudiorayService implements OnModuleInit {
@@ -9,6 +18,11 @@ export class AudiorayService implements OnModuleInit {
   private readonly audiorayServerUrl =
     process.env.AUDIORAY_URL ??
     'http://localhost:3000/api/whisper/transcribe';
+
+  constructor(
+    private readonly meetingsService: MeetingsService,
+    private readonly transcriptAggregator: TranscriptAggregatorService,
+  ) {}
 
   onModuleInit() {
     this.logger.log(`Audioray endpoint: ${this.audiorayServerUrl}`);
@@ -20,59 +34,67 @@ export class AudiorayService implements OnModuleInit {
     }
   }
 
-  async sendAudioToAudioray(audioBuffer: Buffer, speakerName: string) {
+  async sendAudioToAudioray(
+    audioBuffer: Buffer,
+    speakerName: string,
+  ): Promise<AudiorayTranscribeResponse | null> {
+    const meetingId = this.meetingsService.getActiveMeetingId();
+    if (!meetingId) {
+      this.logger.warn('Нет активной встречи — чанк пропущен');
+      return null;
+    }
+
     this.saveChunkToDisk(audioBuffer, speakerName);
 
     this.logger.log(
       `Отправка аудио-чанка (${audioBuffer.length} байт) спикера: ${speakerName}`,
     );
 
-    // Пример интеграции через FormData (если ваш Whisper принимает файлы)
     const formData = new FormData();
-    const uint8ArrayAudio = new Uint8Array(audioBuffer);
-    const blob = new Blob([uint8ArrayAudio], {
+    const blob = new Blob([new Uint8Array(audioBuffer)], {
       type: 'audio/webm;codecs=opus',
     });
     formData.append('file', blob, 'chunk.webm');
     formData.append('speaker', speakerName);
 
-    try {
-      const response = await fetch(this.audiorayServerUrl, {
-        method: 'POST',
-        body: formData,
-      });
+    const response = await fetch(this.audiorayServerUrl, {
+      method: 'POST',
+      body: formData,
+    });
 
-      if (response.ok) {
-        const data = await response.json();
-        this.logger.log(`[Удаленный Audioray] ${data.speaker}: "${data.text}"`);
-      } else {
-        this.logger.error(
-          `Сервер Audioray вернул ошибку: Код ${response.status}`,
-        );
-      }
-
-      // ТОЧКА ИНТЕГРАЦИИ: Тут вы сохраняете текст в БД или отправляете в вебсокет фронтенда
-      //return data.text;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.logger.error(`Ошибка отправки в Audioray: ${message}`);
-      throw error;
+    if (!response.ok) {
+      this.logger.error(
+        `Сервер Audioray вернул ошибку: Код ${response.status}`,
+      );
+      return null;
     }
+
+    const data = (await response.json()) as AudiorayTranscribeResponse;
+    this.logger.log(`[Audioray] ${data.speaker}: "${data.text}"`);
+
+    if (data.text?.trim()) {
+      this.transcriptAggregator.addSegment(meetingId, {
+        speaker: data.speaker,
+        text: data.text.trim(),
+        startedAt: data.timestamp,
+        durationSec: Number.parseFloat(data.processingTimeSec) || 0,
+      });
+    }
+
+    return data;
   }
 
   private saveChunkToDisk(buffer: Buffer, speakerName: string) {
     try {
-      // Форматируем имя файла: YYYYMMDD-HHMMSS_ИмяСпикера.webm
       const timestamp = new Date()
         .toISOString()
-        .replace(/[:.]/g, '-') // убираем недопустимые двоеточия из имени файла
+        .replace(/[:.]/g, '-')
         .replace('T', '_')
-        .substring(0, 19); // оставляем только дату и время
+        .substring(0, 19);
 
-      // Очищаем имя спикера от символов, которые запрещены в названиях файлов операционных систем
       const safeSpeakerName = speakerName
         .replace(/[/\\?%*:|"<>\s]/g, '_')
-        .substring(0, 50); // ограничиваем длину
+        .substring(0, 50);
 
       const fileName = `${timestamp}_[${safeSpeakerName}].webm`;
       const filePath = path.join(this.outputFolder, fileName);
@@ -80,7 +102,8 @@ export class AudiorayService implements OnModuleInit {
       fs.writeFileSync(filePath, buffer);
       this.logger.log(`[Диск] Чанк успешно сохранен: recordings/${fileName}`);
     } catch (error) {
-      this.logger.error(`Не удалось сохранить чанк на диск: ${error.message}`);
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Не удалось сохранить чанк на диск: ${message}`);
     }
   }
 }

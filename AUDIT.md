@@ -347,23 +347,10 @@ audioray/src/
 
 ### Фаза 2 — Стенограмма как сущность (1 неделя)
 
-- [ ] `TranscriptAggregatorService` в Aura — накапливает чанки в памяти/файл
-- [ ] Единый формат записи:
-
-```typescript
-interface TranscriptSegment {
-  id: string;
-  meetingId: string;
-  speaker: string;
-  text: string;
-  startedAt: string;
-  durationSec: number;
-  source: 'audioray';
-}
-```
-
-- [ ] `GET /meetings/:id/transcript` — отдача накопленного текста
-- [ ] WebSocket или SSE для live-стенограммы в UI
+- [x] `TranscriptAggregatorService` в Aura — накапливает чанки в памяти/файл
+- [x] Единый формат записи `TranscriptSegment`
+- [x] `GET /meetings/:id/transcript` — отдача накопленного текста
+- [x] SSE `GET /meetings/:id/transcript/stream` для live-стенограммы
 
 ### Фаза 3 — Структура кода (1–2 недели)
 

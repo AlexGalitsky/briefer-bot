@@ -17,16 +17,25 @@ export class BotController {
   @Post('start')
   @HttpCode(HttpStatus.OK)
   start(@Body() body: { url: string; name?: string }) {
+    const botName = body.name ?? 'Аура';
     this.botService.validateStart(body.url);
 
-    void this.botService.startBot(body.url, body.name).catch((error: Error) => {
-      this.logger.error(
-        `Ошибка запуска бота: ${error.message}`,
-        error.stack,
-      );
-    });
+    const meeting = this.botService.createMeeting(body.url, botName);
 
-    return { success: true, message: 'Команда на обработку встречи принята.' };
+    void this.botService
+      .startBot(body.url, botName, meeting.id)
+      .catch((error: Error) => {
+        this.logger.error(
+          `Ошибка запуска бота: ${error.message}`,
+          error.stack,
+        );
+      });
+
+    return {
+      success: true,
+      meetingId: meeting.id,
+      message: 'Команда на обработку встречи принята.',
+    };
   }
 
   @Post('stop')
