@@ -12,7 +12,11 @@ export class WhisperService implements OnModuleInit {
 
   async onModuleInit() {
     // Путь к файлу модели в корне проекта
-    this.modelPath = path.resolve(process.cwd(), 'models', 'ggml-base.bin');
+    this.modelPath = path.resolve(
+      process.cwd(),
+      'models',
+      'ggml-large-v3-turbo.bin',
+    );
 
     // Создаем папку для временной конвертации файлов
     if (!fs.existsSync(this.tempFolder)) {
