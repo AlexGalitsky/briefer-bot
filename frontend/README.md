@@ -1,3 +1,6 @@
+pnpm config set proxy http://192.168.1.67:44001
+pnpm config set https-proxy http://192.168.1.67:44001
+
 # React + TypeScript + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
