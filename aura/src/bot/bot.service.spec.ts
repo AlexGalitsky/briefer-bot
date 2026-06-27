@@ -1,13 +1,21 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { BotService } from './bot.service';
-import { describe } from 'node:test';
+import { AudiorayService } from 'src/services/audioray.service';
 
 describe('BotService', () => {
   let service: BotService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [BotService],
+      providers: [
+        BotService,
+        {
+          provide: AudiorayService,
+          useValue: {
+            sendAudioToAudioray: jest.fn(),
+          },
+        },
+      ],
     }).compile();
 
     service = module.get<BotService>(BotService);

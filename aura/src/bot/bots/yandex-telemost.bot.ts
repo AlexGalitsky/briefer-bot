@@ -42,15 +42,25 @@ export class YandexTelemostBot extends BaseBot {
     // 1. Создаем мост для передачи аудио-байтов наружу в NestJS
     await page.exposeFunction(
       'onAudioChunkAvailable',
-      (base64Audio: string, currentSpeakers: string[]) => {
-        const buffer = Buffer.from(base64Audio, 'base64');
+      async (base64Audio: string, currentSpeakers: string[]) => {
+        if (currentSpeakers.length === 0) {
+          return;
+        }
 
-        // Имя спикера формируем из массива тех, кто был активен во время этого чанка
-        const speakerLabel =
-          currentSpeakers.length > 0 ? currentSpeakers.join(', ') : 'Тишина';
+        const buffer = Buffer.from(base64Audio, 'base64');
+        const speakerLabel = currentSpeakers.join(', ');
 
         this.logger.log(`Получен чанк звука для: [${speakerLabel}]`);
-        this.audiorayService.sendAudioToAudioray(buffer, speakerLabel);
+
+        try {
+          await this.audiorayService.sendAudioToAudioray(buffer, speakerLabel);
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : String(error);
+          this.logger.error(
+            `Не удалось отправить чанк в Audioray: ${message}`,
+          );
+        }
       },
     );
 
@@ -67,8 +77,8 @@ export class YandexTelemostBot extends BaseBot {
         if (recorderInitialized) return;
         recorderInitialized = true;
 
-        const stream = (audioElement as any).captureStream 
-          ? (audioElement as any).captureStream() 
+        const stream = (audioElement as any).captureStream
+          ? (audioElement as any).captureStream()
           : (audioElement as any).mozCaptureStream();
 
         // Функция, которая создает и запускает короткую запись на 4 секунды

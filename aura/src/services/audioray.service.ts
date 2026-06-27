@@ -1,15 +1,17 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
-import { File } from 'node:buffer';
 
 @Injectable()
-export class AudiorayService {
+export class AudiorayService implements OnModuleInit {
   private readonly logger = new Logger(AudiorayService.name);
   private readonly outputFolder = path.join(process.cwd(), 'recordings');
-  private readonly audiorayServerUrl = 'http://whisper-server-ip:8000/api/whisper/transcribe';
+  private readonly audiorayServerUrl =
+    process.env.AUDIORAY_URL ??
+    'http://localhost:3000/api/whisper/transcribe';
 
   onModuleInit() {
+    this.logger.log(`Audioray endpoint: ${this.audiorayServerUrl}`);
     if (!fs.existsSync(this.outputFolder)) {
       fs.mkdirSync(this.outputFolder, { recursive: true });
       this.logger.log(
@@ -32,12 +34,9 @@ export class AudiorayService {
       type: 'audio/webm;codecs=opus',
     });
     formData.append('file', blob, 'chunk.webm');
-    formData.append('model', 'whisper-1');
-    // Можно передать имя спикера как prompt, чтобы Whisper лучше распознавал контекст
-    formData.append('prompt', `Говорит: ${speakerName}`);
+    formData.append('speaker', speakerName);
 
     try {
-      // Замените URL на эндпоинт вашего Whisper-сервиса
       const response = await fetch(this.audiorayServerUrl, {
         method: 'POST',
         body: formData,
@@ -55,7 +54,9 @@ export class AudiorayService {
       // ТОЧКА ИНТЕГРАЦИИ: Тут вы сохраняете текст в БД или отправляете в вебсокет фронтенда
       //return data.text;
     } catch (error) {
-      this.logger.error(`Ошибка отправки в Whisper: ${error.message}`);
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Ошибка отправки в Audioray: ${message}`);
+      throw error;
     }
   }
 

@@ -22,7 +22,7 @@ export class BotService implements OnApplicationShutdown {
     if (url.includes('telemost.yandex')) {
       return new YandexTelemostBot(this.audiorayService);
     }
-    if (url.includes('://google.com')) {
+    if (url.includes('meet.google.com')) {
       return new GoogleMeetBot(this.audiorayService);
     }
     throw new BadRequestException(
@@ -30,12 +30,22 @@ export class BotService implements OnApplicationShutdown {
     );
   }
 
-  async startBot(url: string, botName: string = 'Аура') {
+  validateStart(url: string): void {
+    if (!url?.trim()) {
+      throw new BadRequestException('Поле "url" обязательно');
+    }
+
     if (this.activeBot && this.activeBot.isActive()) {
       throw new BadRequestException(
         `Уже запущен активный бот для сессии: ${this.activeBot.platformName}`,
       );
     }
+
+    this.getBotStrategy(url);
+  }
+
+  async startBot(url: string, botName: string = 'Аура') {
+    this.validateStart(url);
 
     // Получаем нужную стратегию на основе URL
     this.activeBot = this.getBotStrategy(url);
@@ -44,8 +54,9 @@ export class BotService implements OnApplicationShutdown {
       await this.activeBot.start(url, botName);
       return { success: true, platform: this.activeBot.platformName };
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
       this.logger.error(
-        `Провал запуска стратегии ${this.activeBot.platformName}: ${error.message}`,
+        `Провал запуска стратегии ${this.activeBot?.platformName}: ${message}`,
       );
       this.activeBot = null;
       throw error;

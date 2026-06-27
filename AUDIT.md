@@ -327,14 +327,14 @@ audioray/src/
 
 > Без этого остальное бессмысленно тестировать end-to-end.
 
-- [ ] `audioray.service.ts`: `formData.append('speaker', speakerName)`
-- [ ] Убрать `model`, `prompt` или документировать как deprecated
-- [ ] URL из env: `AUDIORAY_URL=http://localhost:3000/api/whisper/transcribe`
-- [ ] `AudiorayService implements OnModuleInit`
-- [ ] `await sendAudioToAudioray(...)` в боте
-- [ ] `bot.controller.ts`: логировать ошибки, возвращать `{ success: false, error }` при fail
-- [ ] Google Meet: `url.includes('meet.google.com')`
-- [ ] `.env.example` в обоих проектах
+- [x] `audioray.service.ts`: `formData.append('speaker', speakerName)`
+- [x] Убрать `model`, `prompt` или документировать как deprecated
+- [x] URL из env: `AUDIORAY_URL=http://localhost:3000/api/whisper/transcribe`
+- [x] `AudiorayService implements OnModuleInit`
+- [x] `await sendAudioToAudioray(...)` в боте
+- [x] `bot.controller.ts`: логировать ошибки, возвращать `{ success: false, error }` при fail
+- [x] Google Meet: `url.includes('meet.google.com')`
+- [x] `.env.example` в обоих проектах
 
 ### Фаза 1 — Качество STT (3–5 дней)
 
