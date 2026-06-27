@@ -9,7 +9,7 @@
 2. Удобство расширения функционала
 3. Backend на отдельном сервере (TypeORM) — единая точка входа для клиентов
 4. Aura — внутренний worker, вызывается только через Backend REST API
-5. React-фронтенд — фаза 6
+5. React-фронтенд — фаза 6 ([план](frontend/PLAN.md))
 
 ---
 
@@ -32,12 +32,13 @@
 | Область | Оценка | Комментарий |
 |---------|--------|-------------|
 | Идея и разделение сервисов | ✅ Хорошо | Бот, STT и публичный API разделены — backend (ф.4), aura, audioray |
-| **backend** | 🟡 Scaffold | NestJS starter; TypeORM и AuraClient — фаза 4 |
+| **backend** | ✅ Фаза 4 | TypeORM, auth (OTP+TOTP), meetings API, AuraClient |
+| **frontend** | 🟡 Scaffold | React 19 + TanStack; интеграция — [frontend/PLAN.md](frontend/PLAN.md) |
 | Yandex Telemost | 🟡 Рабочий прототип | Вход в созвон, захват аудио, трекинг спикеров |
 | Google Meet | 🔴 Заглушка | Только `goto`, без join и аудио |
 | Интеграция Aura ↔ Audioray | ✅ Работает | Фаза 0 закрыта |
 | Качество STT | 🟡 Среднее | Worker, VAD, контекстный prompt; фаза 1 закрыта |
-| Стенограмма API | ✅ В Aura | Фаза 2; миграция в backend — фаза 4 |
+| Стенограмма API | ✅ В backend | PostgreSQL + SSE; Aura пушит сегменты |
 | Архитектура кода | ✅ Рефакторинг | Фаза 3 закрыта |
 | Тесты | 🔴 Почти нет | Только boilerplate NestJS |
 | Конфигурация | 🟡 Env | AppConfigService в aura/audioray; backend — TBD |
@@ -500,22 +501,38 @@ src/
 
 ### Фаза 6 — React Frontend
 
-- [ ] Отдельный проект `frontend/` (Vite + React + TypeScript)
-- [ ] Только **backend** как API base URL — прямых вызовов Aura/Audioray нет
-- [ ] Экраны: login, список встреч, старт/стоп, live-стенограмма (SSE)
-- [ ] Фаза 5+: просмотр выжимок и задач
-- [ ] Auth: JWT в httpOnly cookie или Bearer (согласовать с backend)
+> Детальный план: **[frontend/PLAN.md](frontend/PLAN.md)** (стек и гайдлайны: `frontend/.cursorrules`)
+
+#### Scaffold (готово)
+
+- [x] Проект `frontend/` — Vite 8 + React 19 + TypeScript
+- [x] TanStack Router (file-based) + TanStack Query v5
+- [x] Tailwind CSS v4 + shadcn/ui (`src/components/ui/`)
+- [x] Axios, Zustand, React Hook Form в зависимостях
+- [x] `.env.example` (`VITE_API_URL`)
+
+#### Интеграция (в работе)
+
+- [x] **6.0** Инфра: `api-client`, route guards, `AppLayout`, Zod parse
+- [x] **6.1** Auth: register/login (OTP), TOTP step в форме
+- [x] **6.2** Meetings: список, старт/стоп по URL
+- [x] **6.3** Live-стенограмма: fetch SSE + `TranscriptView`
+- [x] **6.4** Темы: светлая/тёмная (`next-themes`), toggle в header и на auth
+- [x] Только **backend** как API — без Aura/Audioray
+- [x] Backend CORS для `localhost:5173`
+- [ ] Фаза 5+: выжимки и задачи в UI
+- [ ] `/settings/security` — настройка TOTP с QR
 
 ---
 
 ## 8. Дорожная карта
 
 ```
-Фазы 0–3 ✅     Фаза 4              Фаза 5         Фаза 6
-    │              │                   │              │
-    ▼              ▼                   ▼              ▼
-Ядро STT    →  Backend+TypeORM  →  TBD (резерв) →  React UI
-Telemost       Aura internal        LLM/Trello?     только → backend
+Фазы 0–4 ✅     Фаза 5         Фаза 6 (frontend/PLAN.md)
+    │              │              │
+    ▼              ▼              ▼
+Ядро+Backend →  TBD (резерв) →  React UI
+                  LLM/Trello      только → backend
 ```
 
 | Этап | Результат | Критерий готовности |
@@ -526,7 +543,7 @@ Telemost       Aura internal        LLM/Trello?     только → backend
 | **3** | Чистая архитектура | Новая платформа = новый bot + selectors ✅ |
 | **4** | Backend + БД | Публичный API на backend; Aura — internal worker; TypeORM ✅ |
 | **5** | Резерв | TBD |
-| **6** | UI | React-фронтенд через backend REST |
+| **6** | UI | Auth + meetings + live transcript через backend 🟡 |
 
 ### Развёртывание (целевое)
 
@@ -535,7 +552,7 @@ Telemost       Aura internal        LLM/Trello?     только → backend
 | backend | app-server | 5000 | PostgreSQL |
 | aura | bot-worker | 4000 | Puppeteer, Chromium |
 | audioray | bot-worker* | 3000 | whisper.cpp, ffmpeg, модель |
-| frontend | static/CDN | 5173 | — |
+| Frontend | CDN / static | 5173 | Только `VITE_API_URL` → backend |
 
 \* audioray может жить на том же хосте, что aura (низкая latency для STT)
 
