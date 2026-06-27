@@ -1,27 +1,17 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { execFile } from 'child_process';
-import { promisify } from 'util';
 import * as path from 'path';
 import * as fs from 'fs';
 import ffmpeg from 'fluent-ffmpeg';
-
-const execFileAsync = promisify(execFile);
+import { TranscriptContextService } from './transcript-context.service';
+import { TranscriptionQueueService } from './transcription-queue.service';
+import { WhisperWorkerService } from './whisper-worker.service';
 
 @Injectable()
 export class WhisperService implements OnModuleInit {
   private readonly logger = new Logger(WhisperService.name);
-  private modelPath: string;
   private readonly projectRoot = path.resolve(__dirname, '..', '..');
   private readonly tempFolder = path.join(this.projectRoot, 'temp_audio');
   private readonly transcriptsFolder = path.join(this.projectRoot, 'transcripts');
-  private readonly whisperCppDir = path.join(
-    this.projectRoot,
-    'node_modules',
-    'whisper-node',
-    'lib',
-    'whisper.cpp',
-  );
-  private readonly whisperMain = path.join(this.whisperCppDir, 'main');
   private readonly hallucinationPatterns = [
     /редактор\s+субтитров\s+а\.?\s*семкин\s+корректор\s+а\.?\s*егорова/gi,
     /банкин-корректор\s+егорова/gi,
@@ -38,53 +28,33 @@ export class WhisperService implements OnModuleInit {
     'thanks for watching',
   ]);
 
-  async onModuleInit() {
-    this.modelPath = path.resolve(
-      this.projectRoot,
-      'models',
-      'ggml-large-v3-turbo.bin',
-    );
+  constructor(
+    private readonly whisperWorker: WhisperWorkerService,
+    private readonly transcriptionQueue: TranscriptionQueueService,
+    private readonly transcriptContext: TranscriptContextService,
+  ) {}
 
+  onModuleInit() {
     for (const folder of [this.tempFolder, this.transcriptsFolder]) {
       if (!fs.existsSync(folder)) {
         fs.mkdirSync(folder, { recursive: true });
       }
     }
 
-    // Проверяем наличие модели
-    if (!fs.existsSync(this.modelPath)) {
-      this.logger.error(`==================================================`);
-      this.logger.error(`КРИТИЧЕСКАЯ ОШИБКА: Модель не найдена!`);
-      this.logger.error(
-        `Скачайте модель ggml-large-v3-turbo.bin и положите её в audioray/models`,
-      );
-      this.logger.error(`Ожидаемый путь: ${this.modelPath}`);
-      this.logger.error(`==================================================`);
-    } else {
-      this.logger.log(`Модель Whisper загружена: ${this.modelPath}`);
-      this.logger.log(`Транскрипты сохраняются в: ${this.transcriptsFolder}`);
-    }
+    this.logger.log(`Модель Whisper: ${this.whisperWorker.modelPath}`);
+    this.logger.log(`Транскрипты сохраняются в: ${this.transcriptsFolder}`);
   }
 
-  /**
-   * Конвертирует WebM/Opus буфер из сети в строгий WAV (16000Hz, Mono, PCM 16-bit)
-   */
   private convertWebmToWav16k(inputBuffer: Buffer): Promise<string> {
     return new Promise((resolve, reject) => {
       const uniqueId = `${Date.now()}-${Math.round(Math.random() * 1e6)}`;
       const tempInputPath = path.join(this.tempFolder, `${uniqueId}.webm`);
       const tempOutputPath = path.join(this.tempFolder, `${uniqueId}.wav`);
 
-      // Записываем полученный из HTTP-запроса буфер на диск
       fs.writeFileSync(tempInputPath, inputBuffer);
 
-      // Конвертируем под жесткие требования whisper.cpp
       ffmpeg(tempInputPath)
-        .outputOptions([
-          '-ar 16000', // 16кГц частота
-          '-ac 1', // моно-канал
-          '-c:a pcm_s16le', // кодек PCM 16-bit
-        ])
+        .outputOptions(['-ar 16000', '-ac 1', '-c:a pcm_s16le'])
         .save(tempOutputPath)
         .on('end', () => {
           if (fs.existsSync(tempInputPath)) fs.unlinkSync(tempInputPath);
@@ -92,6 +62,7 @@ export class WhisperService implements OnModuleInit {
         })
         .on('error', (err) => {
           if (fs.existsSync(tempInputPath)) fs.unlinkSync(tempInputPath);
+          if (fs.existsSync(tempOutputPath)) fs.unlinkSync(tempOutputPath);
           reject(err);
         });
     });
@@ -156,33 +127,6 @@ export class WhisperService implements OnModuleInit {
     return peak > 1200 && rms > 250 && activeRatio > 0.03;
   }
 
-  private async runWhisper(wavPath: string): Promise<string> {
-    const { stdout } = await execFileAsync(
-      this.whisperMain,
-      [
-        '-m',
-        this.modelPath,
-        '-f',
-        wavPath,
-        '-l',
-        'ru',
-        '-nt',
-        '-et',
-        '2.8',
-        '-lpt',
-        '-0.5',
-        '--prompt',
-        'Транскрипция русской речи.',
-      ],
-      {
-        cwd: this.whisperCppDir,
-        maxBuffer: 10 * 1024 * 1024,
-      },
-    );
-
-    return stdout.replace(/\s+/g, ' ').trim();
-  }
-
   private saveTranscript(
     speaker: string,
     text: string,
@@ -206,22 +150,27 @@ export class WhisperService implements OnModuleInit {
     );
   }
 
-  /**
-   * Главный метод обработки аудио-чанка
-   */
   async transcribeBuffer(
     audioBuffer: Buffer,
     speaker = 'unknown',
+  ): Promise<string> {
+    return this.transcriptionQueue.enqueue(() =>
+      this.processChunk(audioBuffer, speaker),
+    );
+  }
+
+  private async processChunk(
+    audioBuffer: Buffer,
+    speaker: string,
   ): Promise<string> {
     let wavPath: string | null = null;
     const startTime = Date.now();
 
     this.logger.log(
-      `Начало транскрибации: спикер="${speaker}", размер=${audioBuffer.length} байт`,
+      `Начало транскрибации: спикер="${speaker}", размер=${audioBuffer.length} байт, очередь=${this.transcriptionQueue.getDepth()}`,
     );
 
     try {
-      // 1. Конвертируем webm в wav
       wavPath = await this.convertWebmToWav16k(audioBuffer);
       this.logger.log(`Конвертация webm→wav завершена: ${path.basename(wavPath)}`);
 
@@ -230,16 +179,14 @@ export class WhisperService implements OnModuleInit {
         return '';
       }
 
-      // 2. Вызываем whisper.cpp напрямую (whisper-node ломает парсинг коротких чанков)
+      const prompt = this.transcriptContext.getPrompt();
       const whisperStart = Date.now();
-      const rawText = await this.runWhisper(wavPath);
+      const rawText = await this.whisperWorker.transcribe(wavPath, prompt);
       const whisperSec = ((Date.now() - whisperStart) / 1000).toFixed(2);
       this.logger.log(`Whisper обработал чанк за ${whisperSec}с`);
 
       if (this.isHallucinationOnly(rawText)) {
-        this.logger.warn(
-          `Отброшена галлюцинация Whisper: "${rawText}"`,
-        );
+        this.logger.warn(`Отброшена галлюцинация Whisper: "${rawText}"`);
         return '';
       }
 
@@ -257,21 +204,23 @@ export class WhisperService implements OnModuleInit {
         );
       }
 
+      this.transcriptContext.addText(text);
+
       const durationSec = ((Date.now() - startTime) / 1000).toFixed(2);
       this.logger.log(
-        `Транскрибация завершена за ${durationSec}с: "${text || '(пусто)'}"`,
+        `Транскрибация завершена за ${durationSec}с: "${text}"`,
       );
       this.saveTranscript(speaker, text, durationSec);
 
       return text;
     } catch (error) {
       const durationSec = ((Date.now() - startTime) / 1000).toFixed(2);
+      const message = error instanceof Error ? error.message : String(error);
       this.logger.error(
-        `Ошибка обработки чанка (спикер="${speaker}", ${durationSec}с): ${error.message}`,
+        `Ошибка обработки чанка (спикер="${speaker}", ${durationSec}с): ${message}`,
       );
       return '';
     } finally {
-      // 4. Гарантированно удаляем временный wav файл, чтобы не забивать диск сервера
       if (wavPath && fs.existsSync(wavPath)) {
         fs.unlinkSync(wavPath);
       }

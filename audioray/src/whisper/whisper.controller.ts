@@ -18,23 +18,32 @@ export class WhisperController {
         'Аудиофайл (поле "file") не найден в запросе',
       );
     }
-    if (!speaker) {
+    if (!speaker?.trim()) {
       throw new BadRequestException('Имя спикера (поле "speaker") не указано');
+    }
+
+    const normalizedSpeaker = speaker.trim();
+    if (normalizedSpeaker === 'Тишина') {
+      return {
+        speaker: normalizedSpeaker,
+        text: '',
+        processingTimeSec: '0.00',
+        timestamp: new Date().toISOString(),
+      };
     }
 
     const startTime = Date.now();
 
-    // Запускаем тяжелую обработку
     const text = await this.whisperService.transcribeBuffer(
       file.buffer,
-      speaker,
+      normalizedSpeaker,
     );
 
     const duration = ((Date.now() - startTime) / 1000).toFixed(2);
 
     // Возвращаем результат обратно боту (или пишем в общую базу/вебсокеты)
     return {
-      speaker,
+      speaker: normalizedSpeaker,
       text,
       processingTimeSec: duration,
       timestamp: new Date().toISOString(),

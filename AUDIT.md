@@ -338,12 +338,12 @@ audioray/src/
 
 ### Фаза 1 — Качество STT (3–5 дней)
 
-- [ ] Пропуск чанков с `speaker === 'Тишина'` (или пустым массивом спикеров)
-- [ ] Whisper worker process (модель грузится один раз)
-- [ ] Очередь транскрибации (concurrency = 1)
-- [ ] Контекстный `--prompt` из накопленной стенограммы
-- [ ] Health check: `GET /health` (model, ffmpeg, whisper binary)
-- [ ] Startup validation с `fail-fast` если модель/ffmpeg отсутствуют
+- [x] Пропуск чанков с `speaker === 'Тишина'` (или пустым массивом спикеров)
+- [x] Whisper worker process (модель грузится один раз)
+- [x] Очередь транскрибации (concurrency = 1)
+- [x] Контекстный `--prompt` из накопленной стенограммы
+- [x] Health check: `GET /health` (model, ffmpeg, whisper binary)
+- [x] Startup validation с `fail-fast` если модель/ffmpeg отсутствуют
 
 ### Фаза 2 — Стенограмма как сущность (1 неделя)
 

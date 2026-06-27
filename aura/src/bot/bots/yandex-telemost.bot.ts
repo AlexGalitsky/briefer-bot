@@ -66,7 +66,7 @@ export class YandexTelemostBot extends BaseBot {
 
     // 2. Внедряем JS-скрипт внутрь страницы Телемоста для нарезки аудио
     await page.evaluate(() => {
-      const CHUNK_INTERVAL = 4000; // Нарезаем аудио каждые 4 секунды
+      const CHUNK_INTERVAL = 6000; // Нарезаем аудио каждые 6 секунд
 
       // Сет для хранения имен тех, кто проявил активность за текущие 4 секунды
       let activeSpeakersInCurrentChunk = new Set<string>();
