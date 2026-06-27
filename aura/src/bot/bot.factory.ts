@@ -12,12 +12,16 @@ export class BotFactory {
     private readonly config: AppConfigService,
   ) {}
 
-  create(platform: string): IMeetingBot {
+  create(platform: string, meetingId: string): IMeetingBot {
     switch (platform) {
       case 'yandex-telemost':
-        return new YandexTelemostBot(this.audiorayClient, this.config);
+        return new YandexTelemostBot(
+          this.audiorayClient,
+          this.config,
+          meetingId,
+        );
       case 'google-meet':
-        return new GoogleMeetBot(this.audiorayClient);
+        return new GoogleMeetBot(this.audiorayClient, meetingId);
       default:
         throw new BadRequestException(
           `Платформа не поддерживается: ${platform}`,

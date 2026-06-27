@@ -37,8 +37,8 @@ SPA на React 19: регистрация/вход по телефону, упр
 - [x] Экраны встреч и live-стенограммы (SSE)
 - [x] Темы light/dark
 - [x] `.env.example`
-- [ ] `/settings/security` — TOTP setup с QR
-- [ ] Polling fallback при недоступности SSE
+- [x] `/settings/security` — TOTP setup с QR
+- [x] Polling fallback при недоступности SSE
 
 ---
 
@@ -145,7 +145,7 @@ Base URL: `VITE_API_URL` (default `http://localhost:5000`)
 - [x] Zod-схемы: телефон E.164 / +7, код 6 цифр
 - [x] `input-otp` (shadcn) для кода SMS
 - [x] Zustand или context: `accessToken`, `user` (phone, totpEnabled)
-- [ ] `/settings/security` — QR из `otpauthUrl`, подтверждение TOTP
+- [x] `/settings/security` — QR из `otpauthUrl`, подтверждение TOTP
 
 ### 6.2 — Встречи (2–3 дня)
 
@@ -160,7 +160,7 @@ Base URL: `VITE_API_URL` (default `http://localhost:5000`)
 - [x] `/meetings/$meetingId` — загрузка transcript (`transcriptResponseSchema`) + live stream
 - [x] **SSE с Bearer:** не нативный `EventSource`, а `fetch` + stream (см. раздел ниже) — заголовок `Authorization` работает
 - [x] `TranscriptView`: список сегментов, автоскролл (`message-scroller`)
-- [ ] Polling fallback если stream упал (`refetchInterval` при `status === 'active'`)
+- [x] Polling fallback если stream упал (`refetchInterval` при `status === 'active'`)
 
 ### 6.4 — Полировка (1–2 дня)
 

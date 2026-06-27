@@ -16,6 +16,13 @@ export interface AuraStopResponse {
 
 export interface AuraStatusResponse {
   active: boolean;
+  activeCount?: number;
+  maxConcurrent?: number;
+  bots?: Array<{
+    meetingId: string;
+    platform: string;
+    active: boolean;
+  }>;
   platform?: string;
   meetingId?: string | null;
 }
@@ -58,10 +65,11 @@ export class AuraClient {
     return (await response.json()) as AuraStartResponse;
   }
 
-  async stopBot(): Promise<AuraStopResponse> {
+  async stopBot(meetingId: string): Promise<AuraStopResponse> {
     const response = await fetch(`${this.baseUrl}/bot/stop`, {
       method: 'POST',
       headers: this.headers(),
+      body: JSON.stringify({ meetingId }),
     });
 
     if (!response.ok) {

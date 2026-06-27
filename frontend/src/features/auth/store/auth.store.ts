@@ -13,6 +13,7 @@ interface AuthStore {
   hydrated: boolean
   hydrate: () => void
   setSession: (accessToken: string, user: PublicUser) => void
+  updateUser: (patch: Partial<PublicUser>) => void
   logout: () => void
 }
 
@@ -30,6 +31,14 @@ export const useAuthStore = create<AuthStore>((set) => ({
   setSession: (accessToken, user) => {
     saveSession(accessToken, user)
     set({ accessToken, user })
+  },
+  updateUser: (patch) => {
+    set((state) => {
+      if (!state.user || !state.accessToken) return state
+      const user = { ...state.user, ...patch }
+      saveSession(state.accessToken, user)
+      return { user }
+    })
   },
   logout: () => {
     clearSession()

@@ -10,16 +10,18 @@ export const Route = createFileRoute('/register')({
 
 function RegisterPage() {
   return (
-    <div className="min-h-screen px-4 py-10">
+    <div className="flex min-h-screen flex-col px-4 py-8 sm:px-6 sm:py-10">
       <div className="mb-6 flex justify-end">
         <ThemeToggle />
       </div>
-      <PhoneAuthForm
-        purpose="register"
-        title="Регистрация"
-        description="Создайте аккаунт по номеру телефона"
-        alternateLink={{ to: '/login', label: 'Уже есть аккаунт? Войти' }}
-      />
+      <div className="mx-auto w-full max-w-md flex-1">
+        <PhoneAuthForm
+          purpose="register"
+          title="Регистрация"
+          description="Создайте аккаунт по номеру телефона"
+          alternateLink={{ to: '/login', label: 'Уже есть аккаунт? Войти' }}
+        />
+      </div>
     </div>
   )
 }

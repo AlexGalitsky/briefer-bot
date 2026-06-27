@@ -38,19 +38,6 @@ export class MeetingsService {
   ): Promise<Meeting> {
     const platform = this.detectPlatform(url);
 
-    const active = await this.meetingsRepository.findOne({
-      where: [
-        { createdById: user.id, status: 'active' },
-        { createdById: user.id, status: 'starting' },
-      ],
-    });
-
-    if (active) {
-      throw new BadRequestException(
-        'У вас уже есть активная встреча. Остановите бота перед запуском новой.',
-      );
-    }
-
     let meeting = this.meetingsRepository.create({
       url,
       platform,
@@ -89,7 +76,7 @@ export class MeetingsService {
     }
 
     try {
-      await this.auraClient.stopBot();
+      await this.auraClient.stopBot(meetingId);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.warn(`Aura stop warning: ${message}`);

@@ -3,7 +3,7 @@ import { Page } from 'puppeteer';
 import { AppConfigService } from 'src/config/app-config.service';
 import { AudiorayClient } from 'src/transcription/audioray.client';
 import { BaseBot } from '../../base-bot';
-import { TELEMOST_SELECTORS } from './telemost.selectors';
+import { TELEMOST_SELECTORS, getTelemostPageSelectors } from './telemost.selectors';
 
 export class YandexTelemostBot extends BaseBot {
   protected readonly logger = new Logger(YandexTelemostBot.name);
@@ -12,6 +12,7 @@ export class YandexTelemostBot extends BaseBot {
   constructor(
     audiorayClient: AudiorayClient,
     private readonly config: AppConfigService,
+    private readonly meetingId: string,
   ) {
     super(audiorayClient);
   }
@@ -67,7 +68,11 @@ export class YandexTelemostBot extends BaseBot {
         this.logger.log(`Получен чанк звука для: [${speakerLabel}]`);
 
         try {
-          await this.audiorayClient.transcribeChunk(buffer, speakerLabel);
+          await this.audiorayClient.transcribeChunk(
+            buffer,
+            speakerLabel,
+            this.meetingId,
+          );
         } catch (error) {
           const message =
             error instanceof Error ? error.message : String(error);
@@ -141,9 +146,11 @@ export class YandexTelemostBot extends BaseBot {
 
           document.querySelectorAll(selectors.participantCard).forEach((card) => {
             const rootBlock = card.querySelector(selectors.cardRoot);
-            const hasSpeakingStroke = rootBlock?.classList.contains(
-              selectors.speakingStrokeClass,
-            );
+            const hasSpeakingStroke =
+              rootBlock?.classList.contains(selectors.speakingStrokeClass) ||
+              [...(rootBlock?.classList ?? [])].some((c) =>
+                c.includes('rootStroke'),
+              );
 
             if (hasSpeakingStroke) {
               const nameSpan = card.querySelector(
@@ -165,7 +172,7 @@ export class YandexTelemostBot extends BaseBot {
           attributeFilter: ['class', 'data-g_track_muted'],
         });
       },
-      TELEMOST_SELECTORS,
+      getTelemostPageSelectors(),
       chunkIntervalMs,
     );
   }

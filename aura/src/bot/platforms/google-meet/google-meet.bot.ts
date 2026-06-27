@@ -1,10 +1,18 @@
 import { Logger } from '@nestjs/common';
 import { Page } from 'puppeteer';
+import { AudiorayClient } from 'src/transcription/audioray.client';
 import { BaseBot } from '../../base-bot';
 
 export class GoogleMeetBot extends BaseBot {
   protected readonly logger = new Logger(GoogleMeetBot.name);
   public readonly platformName = 'google-meet';
+
+  constructor(
+    audiorayClient: AudiorayClient,
+    private readonly meetingId: string,
+  ) {
+    super(audiorayClient);
+  }
 
   protected async handleMeetingFlow(
     page: Page,

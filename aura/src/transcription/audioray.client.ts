@@ -3,7 +3,6 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { BackendClient } from 'src/backend/backend.client';
 import { AppConfigService } from 'src/config/app-config.service';
-import { MeetingsService } from 'src/meetings/meetings.service';
 
 export interface AudiorayTranscribeResponse {
   speaker: string;
@@ -19,7 +18,6 @@ export class AudiorayClient implements OnModuleInit {
 
   constructor(
     private readonly config: AppConfigService,
-    private readonly meetingsService: MeetingsService,
     private readonly backendClient: BackendClient,
   ) {
     this.outputFolder = path.join(
@@ -41,17 +39,17 @@ export class AudiorayClient implements OnModuleInit {
   async transcribeChunk(
     audioBuffer: Buffer,
     speakerName: string,
+    meetingId: string,
   ): Promise<AudiorayTranscribeResponse | null> {
-    const meetingId = this.meetingsService.getActiveMeetingId();
     if (!meetingId) {
-      this.logger.warn('Нет активной встречи — чанк пропущен');
+      this.logger.warn('meetingId не передан — чанк пропущен');
       return null;
     }
 
-    this.saveChunkToDisk(audioBuffer, speakerName);
+    this.saveChunkToDisk(audioBuffer, speakerName, meetingId);
 
     this.logger.log(
-      `Отправка аудио-чанка (${audioBuffer.length} байт) спикера: ${speakerName}`,
+      `[${meetingId}] Отправка аудио-чанка (${audioBuffer.length} байт) спикера: ${speakerName}`,
     );
 
     const formData = new FormData();
@@ -90,7 +88,11 @@ export class AudiorayClient implements OnModuleInit {
     return data;
   }
 
-  private saveChunkToDisk(buffer: Buffer, speakerName: string) {
+  private saveChunkToDisk(
+    buffer: Buffer,
+    speakerName: string,
+    meetingId: string,
+  ) {
     try {
       const timestamp = new Date()
         .toISOString()
@@ -102,7 +104,8 @@ export class AudiorayClient implements OnModuleInit {
         .replace(/[/\\?%*:|"<>\s]/g, '_')
         .substring(0, 50);
 
-      const fileName = `${timestamp}_[${safeSpeakerName}].webm`;
+      const shortMeetingId = meetingId.substring(0, 8);
+      const fileName = `${timestamp}_${shortMeetingId}_[${safeSpeakerName}].webm`;
       const filePath = path.join(this.outputFolder, fileName);
 
       fs.writeFileSync(filePath, buffer);

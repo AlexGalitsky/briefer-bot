@@ -8,6 +8,7 @@ export default () => ({
     password: process.env.DB_PASSWORD ?? 'postgres',
     name: process.env.DB_NAME ?? 'briefer',
     synchronize: process.env.DB_SYNCHRONIZE === 'true',
+    migrationsRun: process.env.DB_MIGRATE === 'true',
   },
   jwt: {
     secret: process.env.JWT_SECRET ?? 'dev-jwt-secret-change-in-production',

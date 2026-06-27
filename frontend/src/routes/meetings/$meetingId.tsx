@@ -19,16 +19,22 @@ export const Route = createFileRoute('/meetings/$meetingId')({
 function MeetingDetailPage() {
   const { meetingId } = Route.useParams()
   const navigate = useNavigate()
-  const { data: meetingData, isLoading: meetingLoading } = useMeeting(meetingId)
-  const { data: transcriptData, isLoading: transcriptLoading } =
-    useTranscript(meetingId)
   const stopMeeting = useStopMeeting()
+  const { data: meetingData, isLoading: meetingLoading } = useMeeting(meetingId)
 
   const isLive =
     meetingData?.meeting.status === 'active' ||
     meetingData?.meeting.status === 'starting'
 
-  const { liveSegments, connected } = useTranscriptStream(meetingId, isLive)
+  const { liveSegments, connected, pollingFallback } = useTranscriptStream(
+    meetingId,
+    isLive,
+  )
+
+  const { data: transcriptData, isLoading: transcriptLoading } = useTranscript(
+    meetingId,
+    { pollWhileLive: isLive && pollingFallback },
+  )
 
   const allSegments = useMemo(() => {
     const base = transcriptData?.segments ?? []
@@ -60,17 +66,20 @@ function MeetingDetailPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight">Стенограмма</h1>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-xl font-bold tracking-tight md:text-2xl">
+              Стенограмма
+            </h1>
             <Badge>{meeting.status}</Badge>
           </div>
-          <p className="text-sm text-muted-foreground break-all">{meeting.url}</p>
+          <p className="break-all text-sm text-muted-foreground">{meeting.url}</p>
         </div>
         {(meeting.status === 'active' || meeting.status === 'starting') && (
           <Button
             variant="destructive"
+            className="w-full shrink-0 sm:w-auto"
             onClick={handleStop}
             disabled={stopMeeting.isPending}
           >
@@ -86,6 +95,7 @@ function MeetingDetailPage() {
           segments={allSegments}
           live={isLive}
           connected={connected}
+          polling={pollingFallback}
         />
       )}
     </div>

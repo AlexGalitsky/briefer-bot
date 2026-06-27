@@ -9,10 +9,14 @@ export function useMeeting(id: string) {
   })
 }
 
-export function useTranscript(meetingId: string) {
+export function useTranscript(
+  meetingId: string,
+  options?: { pollWhileLive?: boolean },
+) {
   return useQuery({
     queryKey: ['transcript', meetingId],
     queryFn: () => fetchTranscript(meetingId),
     enabled: Boolean(meetingId),
+    refetchInterval: options?.pollWhileLive ? 5000 : false,
   })
 }
