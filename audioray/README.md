@@ -1,8 +1,8 @@
 # Audioray
 
-Локальный сервис распознавания речи (STT) для **briefer-bot**. Принимает WebM-чанки от Aura, транскрибирует через [whisper.cpp](https://github.com/ggerganov/whisper.cpp).
+Локальный сервис распознавания речи (STT) и генерации выжимок (LLM) для **briefer-bot**.
 
-**Internal only** — вызывается только из Aura.
+**Internal only** — STT вызывается из Aura, summary — из Backend.
 
 ## Требования
 
@@ -11,7 +11,8 @@
 | Node.js 20+ | |
 | FFmpeg | в `PATH` |
 | cmake или make | для сборки whisper.cpp |
-| Модель | `models/ggml-large-v3-turbo.bin` (~1.6 GB) |
+| Ollama | для `/api/summary/generate` (порт 11434) |
+| Модель Whisper | `models/ggml-large-v3-turbo.bin` (~1.6 GB) |
 
 ## Установка
 
@@ -106,6 +107,9 @@ audioray/
 │   │   ├── whisper-process.service.ts
 │   │   ├── vad.service.ts
 │   │   └── hallucination-filter.service.ts
+│   ├── summary/
+│   │   ├── summary.controller.ts
+│   │   └── summary.service.ts   # Ollama
 │   └── transcription/
 └── transcripts/         # debug-логи, .gitignore
 ```
@@ -119,6 +123,22 @@ audioray/
 | `npm run whisper:build:metal` | Metal (macOS ARM) |
 | `npm run whisper:build:cuda` | CUDA |
 | `npm run build` | Сборка TypeScript |
+
+## API: выжимка (Ollama)
+
+### `POST /api/summary/generate`
+
+```json
+{ "transcript": "полный текст стенограммы..." }
+```
+
+Ответ: `{ summaryMarkdown, tasks[], model, processingTimeSec }`
+
+Env: `OLLAMA_URL`, `OLLAMA_MODEL` (default `deepseek-r1:14b`), `OLLAMA_TIMEOUT_MS`.
+
+```bash
+ollama pull deepseek-r1:14b
+```
 
 ## Интеграция с Aura
 

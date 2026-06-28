@@ -1,14 +1,15 @@
 # План разработки Frontend (Фаза 6)
 
-**Проект:** Briefer Bot — UI для встреч и live-стенограммы  
+**Проект:** Briefer Bot — UI для встреч, live-стенограммы, выжимок и задач  
 **Дата:** 27 июня 2026  
+**Статус:** ✅ Фаза 6 завершена
 **Связанные документы:** [docs/roadmap.md](../docs/roadmap.md), [docs/testing.md](../docs/testing.md), [.cursorrules](./.cursorrules)
 
 ---
 
 ## Цель
 
-SPA на React 19: регистрация/вход по телефону, управление встречами, просмотр стенограммы в реальном времени. **Единственный backend API** — `backend` (порт 5000). Прямых вызовов Aura/Audioray нет.
+SPA на React 19: регистрация/вход по телефону, управление встречами, live-стенограмма, просмотр AI-выжимки и задач, экспорт MD/PDF. **Единственный backend API** — `backend` (порт 5000). Прямых вызовов Aura/Audioray/Ollama нет.
 
 ---
 
@@ -38,7 +39,9 @@ SPA на React 19: регистрация/вход по телефону, упр
 - [x] Темы light/dark
 - [x] `.env.example`
 - [x] `/settings/security` — TOTP setup с QR
-- [x] Polling fallback при недоступности SSE
+- [x] SSE reconnect + polling fallback
+- [x] Mobile layout (AppLayout sheet)
+- [x] Вкладки Summary / Tasks + экспорт MD/PDF
 
 ---
 
@@ -50,8 +53,9 @@ frontend (5173)
     ▼
 backend (5000)  ← единственная точка входа
     │
-    ├── aura (internal)
-    └── audioray (internal)
+    ├── aura (internal) → audioray STT
+    ├── audioray (internal) → Ollama summary
+    └── redis (BullMQ, optional)
 ```
 
 ### Целевая структура `src/`
@@ -69,10 +73,11 @@ src/
 │   │   └── store/         # auth token (или sessionStorage)
 │   ├── meetings/
 │   │   ├── api/           # useMeetings, useCreateMeeting, useStopMeeting
-│   │   ├── components/    # MeetingCard, StartMeetingForm
-│   │   └── hooks/         # useTranscriptStream (SSE)
-│   └── transcript/
-│       └── components/    # TranscriptView, SegmentList
+│   │   ├── components/    # MeetingCard, StartMeetingForm, tabs
+│   │   └── hooks/         # useTranscriptStream (SSE + polling)
+│   └── summary/
+│       ├── api/           # useSummary, useTasks, export
+│       └── schemas/
 ├── components/
 │   ├── ui/                # shadcn — не трогать без нужды
 │   └── shared/            # AppLayout, ProtectedRoute, PageHeader
@@ -170,11 +175,12 @@ Base URL: `VITE_API_URL` (default `http://localhost:5000`)
 - [x] Mobile-first layout (sidebar → sheet на мобиле)
 - [x] Тёмная тема (`next-themes` — уже в deps)
 
-### 6.5 — После фазы 5 (резерв)
+### 6.5 — После фазы 5 ✅
 
-- [ ] Просмотр выжимок (Summary)
-- [ ] Задачи / Trello
-- [ ] Экспорт стенограммы
+- [x] Просмотр выжимок (Summary) — вкладка на странице встречи
+- [x] Задачи — вкладка Tasks, toggle completed
+- [x] Экспорт выжимки — Markdown и PDF
+- [x] Regenerate summary из UI
 
 ---
 

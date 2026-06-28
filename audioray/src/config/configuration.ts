@@ -14,4 +14,10 @@ export default () => ({
     tempAudio: process.env.TEMP_AUDIO_PATH ?? 'temp_audio',
     transcripts: process.env.TRANSCRIPTS_PATH ?? 'transcripts',
   },
+  ollama: {
+    url: process.env.OLLAMA_URL ?? 'http://localhost:11434/api/generate',
+    model: process.env.OLLAMA_MODEL ?? 'deepseek-r1:14b',
+    temperature: Number(process.env.OLLAMA_TEMPERATURE ?? 0.2),
+    timeoutMs: Number(process.env.OLLAMA_TIMEOUT_MS ?? 300_000),
+  },
 });

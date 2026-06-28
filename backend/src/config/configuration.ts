@@ -28,4 +28,13 @@ export default () => ({
     url: process.env.AURA_URL ?? 'http://localhost:4000',
     internalToken: process.env.INTERNAL_API_TOKEN ?? 'dev-internal-token',
   },
+  audioray: {
+    url: process.env.AUDIORAY_URL ?? 'http://localhost:3000',
+  },
+  redis: {
+    enabled: process.env.REDIS_ENABLED !== 'false',
+    host: process.env.REDIS_HOST ?? 'localhost',
+    port: Number(process.env.REDIS_PORT ?? 6379),
+    password: process.env.REDIS_PASSWORD || undefined,
+  },
 });

@@ -8,6 +8,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AuraClient } from 'src/aura-client/aura.client';
+import { SummaryQueueService } from 'src/summaries/summary-queue.service';
 import { User } from 'src/users/entities/user.entity';
 import {
   Meeting,
@@ -23,6 +24,7 @@ export class MeetingsService {
     @InjectRepository(Meeting)
     private readonly meetingsRepository: Repository<Meeting>,
     private readonly auraClient: AuraClient,
+    private readonly summaryQueueService: SummaryQueueService,
   ) {}
 
   detectPlatform(url: string): MeetingPlatform {
@@ -84,7 +86,9 @@ export class MeetingsService {
 
     meeting.status = 'ended';
     meeting.endedAt = new Date();
-    return this.meetingsRepository.save(meeting);
+    const saved = await this.meetingsRepository.save(meeting);
+    void this.summaryQueueService.enqueueGenerate(meetingId);
+    return saved;
   }
 
   findByUser(userId: string): Promise<Meeting[]> {
@@ -128,5 +132,9 @@ export class MeetingsService {
     }
 
     await this.meetingsRepository.save(meeting);
+
+    if (status === 'ended') {
+      void this.summaryQueueService.enqueueGenerate(meetingId);
+    }
   }
 }

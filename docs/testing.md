@@ -1,5 +1,7 @@
 # Тестирование
 
+**Обновлено:** 27 июня 2026
+
 ## Чеклист перед релизом
 
 ### Инфраструктура
@@ -8,7 +10,9 @@
 - [ ] `INTERNAL_API_TOKEN` совпадает в backend и aura
 - [ ] `AURA_URL`, `AUDIORAY_URL`, `VITE_API_URL` корректны
 - [ ] `npm run whisper:build` выполнен (audioray health: whisperServer true)
-- [ ] Модель в `audioray/models/`
+- [ ] Модель Whisper в `audioray/models/`
+- [ ] Ollama запущен, модель скачана (`ollama pull deepseek-r1:14b`)
+- [ ] Redis доступен (если `REDIS_ENABLED=true`)
 - [ ] `ffmpeg -version` работает
 
 ### Auth (backend + frontend)
@@ -17,6 +21,7 @@
 - [ ] `POST /auth/otp/verify` register — JWT
 - [ ] Login существующего пользователя
 - [ ] Login с TOTP (если включён) — `requiresTotp: true` → verify с `totpCode`
+- [ ] `/settings/security` — setup TOTP, QR сканируется, confirm работает
 - [ ] Защищённые роуты без token → 401
 - [ ] Logout / истечение сессии
 
@@ -27,6 +32,7 @@
 - [ ] `GET /meetings` — список только своих встреч
 - [ ] `POST /meetings/:id/stop` — статус `ended`
 - [ ] Повторный start при активном боте — ожидаемое поведение
+- [ ] Две параллельные встречи (если `BOT_MAX_CONCURRENT >= 2`)
 
 ### E2E: бот + стенограмма
 
@@ -34,8 +40,20 @@
 - [ ] При разговоре — сегменты в PostgreSQL
 - [ ] `GET /meetings/:id/transcript` возвращает сегменты
 - [ ] SSE в UI обновляется без перезагрузки
+- [ ] Обрыв SSE → reconnect или polling fallback
 - [ ] После stop — новые сегменты не появляются
 - [ ] Статус встречи: pending → active → ended
+
+### E2E: выжимка и задачи
+
+- [ ] После `ended` — summary job в очереди (логи backend) или in-process
+- [ ] `GET /meetings/:id/summary` → `status: completed`, markdown не пустой
+- [ ] `GET /meetings/:id/tasks` → список задач
+- [ ] UI: вкладки Summary / Tasks показывают данные
+- [ ] `POST /meetings/:id/summary/regenerate` — повторная генерация
+- [ ] `GET .../summary/export/markdown` — скачивается `.md`
+- [ ] `GET .../summary/export/pdf` — скачивается `.pdf` с кириллицей
+- [ ] `PATCH /meetings/:id/tasks/:taskId` — toggle `completed` в UI
 
 ### Audioray (изолированно)
 
@@ -49,6 +67,15 @@ curl -X POST http://localhost:3000/api/whisper/transcribe \
 - [ ] Без `speaker` → 400
 - [ ] `GET /health` — все checks true
 
+```bash
+curl -X POST http://localhost:3000/api/summary/generate \
+  -H 'Content-Type: application/json' \
+  -d '{"transcript":"Иван: Договорились сделать отчёт до пятницы."}'
+```
+
+- [ ] Ответ с `summaryMarkdown` и `tasks[]`
+- [ ] Ollama недоступен → понятная ошибка / timeout
+
 ### Aura (изолированно)
 
 ```bash
@@ -60,6 +87,8 @@ curl -H "X-Internal-Token: dev-internal-token" \
 
 - [ ] Без token → 401
 - [ ] Ошибка join → `success: false` (не молчаливый success)
+- [ ] `GET /bot/status` — список активных ботов
+- [ ] `POST /bot/stop` с `meetingId` — останавливает только одну встречу
 
 ### Frontend UI
 
@@ -67,55 +96,44 @@ curl -H "X-Internal-Token: dev-internal-token" \
 - [ ] Создание встречи из формы
 - [ ] Страница встречи: список сегментов растёт
 - [ ] Light/dark theme переключается
+- [ ] Mobile viewport: sidebar → sheet, читаемый layout
 - [ ] Ошибки API показываются пользователю (toast/alert)
-- [ ] Mobile viewport читаем
+- [ ] Кнопки экспорта MD/PDF работают
 
 ### Негативные сценарии
 
 - [ ] Backend down — frontend показывает ошибку
 - [ ] Aura down — create meeting → failed/pending с сообщением
 - [ ] Audioray down — бот работает, сегментов нет (проверить логи aura)
-- [ ] Обрыв SSE — переподключение или polling (когда реализовано)
+- [ ] Ollama down — summary `failed`, UI показывает ошибку
+- [ ] Redis down при `REDIS_ENABLED=true` — fallback или явная ошибка
+- [ ] Обрыв SSE — переподключение или polling ✅
 
 ## На что обратить внимание
 
-### Качество STT
+| Область | Что проверять |
+|---------|---------------|
+| Latency STT | Время от чанка до сегмента в UI (< 15 с на Metal) |
+| Empty rate | Доля пустых ответов при реальной речи |
+| Summary quality | Задачи соответствуют стенограмме, нет выдумок |
+| PDF export | Кириллица, переносы строк, заголовок встречи |
+| Multi-bot | Нет cross-talk между meetingId |
+| Memory | audioray + ollama на одном хосте — следить за RAM |
 
-- Галлюцинации на тишине («Редактор субтитров…»)
-- Обрезанные фразы на границах чанков
-- Неверный спикер при быстрой смене
-- Задержка > 10 с между речью и появлением в UI
+## Метрики (целевые)
 
-### Puppeteer / Telemost
+| Метрика | Target |
+|---------|--------|
+| STT latency p95 | < 12 с (large-v3-turbo, Metal) |
+| Empty chunk rate | < 30% при активной речи |
+| Summary generation | < 120 с для 30 мин встречи |
+| SSE reconnect | < 5 с до восстановления потока |
+| Uptime bot join | > 95% на Telemost |
 
-- Бот не в конференции (только waiting room)
-- Смена UI Яндекса — селекторы спикеров
-- Долгие созвоны (>1 ч) — утечки памяти
-- Несколько участников — микшированный аудиопоток
+## Автотесты (TODO)
 
-### Безопасность
-
-- `AUTH_DEV_EXPOSE_OTP=false` в staging/prod
-- JWT secret не дефолтный
-- Internal endpoints недоступны снаружи
-- CORS только нужные origins
-
-## Метрики качества (мониторинг)
-
-| Метрика | Как считать | Цель |
-|---------|-------------|------|
-| Empty rate | % чанков с `text: ""` | < 40% |
-| Hallucination rate | % отфильтрованных | → 0 после VAD |
-| Latency p95 | чанк → сегмент в БД | < 8 с |
-| Queue depth | чанков в очереди audioray | ≤ 2 |
-| Bot join success | % успешных start | > 95% |
-| SSE disconnect rate | обрывы на встречу | < 5% |
-
-## Рекомендуемый набор автотестов (TODO)
-
-| Уровень | Что тестировать |
-|---------|-----------------|
-| Unit | `hallucination-filter`, `vad`, Zod schemas |
-| Integration | `POST /auth/otp/*`, `POST /meetings` с мок Aura |
-| E2E | Playwright: login → create meeting (mock aura) |
-| Manual | Реальный Telemost 5–10 мин с 2+ спикерами |
+| Тип | Инструмент | Покрытие |
+|-----|------------|----------|
+| Unit | Jest | VAD, hallucination-filter, summary parser |
+| API | supertest | auth, meetings, summary export |
+| E2E | Playwright | register → meeting → transcript → summary |

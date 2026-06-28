@@ -28,7 +28,13 @@ BACKEND_URL=http://localhost:5000
 INTERNAL_API_TOKEN=dev-internal-token
 AUDIORAY_URL=http://localhost:3000/api/whisper/transcribe
 BOT_CHUNK_INTERVAL_MS=6000
+BOT_MAX_CONCURRENT=3
 ```
+
+| Переменная | Описание |
+|------------|----------|
+| `BOT_MAX_CONCURRENT` | Макс. параллельных ботов на инстанс (default: 1) |
+| `BOT_CHUNK_INTERVAL_MS` | Интервал WebM-чанков в мс |
 
 `INTERNAL_API_TOKEN` должен совпадать с `backend/.env`.
 
@@ -36,11 +42,13 @@ BOT_CHUNK_INTERVAL_MS=6000
 
 Заголовок: `X-Internal-Token: <token>`
 
-| Метод | Путь | Описание |
-|-------|------|----------|
-| POST | `/bot/start` | `{ meetingId, url, botName }` |
-| POST | `/bot/stop` | Остановить бота |
-| GET | `/bot/status` | `{ active, platform, meetingId? }` |
+| Метод | Путь | Тело | Описание |
+|-------|------|------|----------|
+| POST | `/bot/start` | `{ meetingId, url, botName }` | Запуск бота для встречи |
+| POST | `/bot/stop` | `{ meetingId? }` | Stop одной встречи или всех |
+| GET | `/bot/status` | — | `{ active, bots: [{ meetingId, platform }] }` |
+
+При достижении `BOT_MAX_CONCURRENT` новый start вернёт ошибку.
 
 ## Платформы
 
@@ -48,6 +56,8 @@ BOT_CHUNK_INTERVAL_MS=6000
 |-----------|--------|
 | Yandex Telemost | ✅ Реализован |
 | Google Meet | 🔴 Заглушка |
+
+Селекторы Telemost: `src/bot/platforms/telemost/telemost.selectors.ts` (fallback при смене UI).
 
 Новая платформа: `src/bot/platforms/<name>/` + регистрация в `bot.factory.ts`.
 
@@ -58,10 +68,12 @@ src/
 ├── config/
 ├── bot/
 │   ├── bot.controller.ts
-│   ├── bot.service.ts
+│   ├── bot.service.ts      # Map<meetingId, bot>
 │   ├── bot.factory.ts
 │   └── platforms/
 │       ├── telemost/
+│       │   ├── telemost.bot.ts
+│       │   └── telemost.selectors.ts
 │       └── google-meet/
 ├── transcription/
 │   ├── audioray.client.ts
@@ -72,7 +84,7 @@ src/
 
 ## Поток данных
 
-1. Backend вызывает `POST /bot/start`
+1. Backend вызывает `POST /bot/start` с `meetingId`
 2. Бот входит в Telemost, пишет WebM чанки
 3. Чанки → Audioray → текст
 4. Текст → Backend (`POST /internal/transcript-segments`)

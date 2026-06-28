@@ -2,11 +2,11 @@
 
 **Обновлено:** 27 июня 2026
 
-Монорепозиторий для подключения бота к видеосозвонам, live-стенограммы и (в перспективе) выжимок и задач.
+Монорепозиторий для подключения бота к видеосозвонам, live-стенограммы, AI-выжимок и задач.
 
 ## Быстрый старт
 
-→ **[QUICK_START.md](../QUICK_START.md)** — полная инструкция по локальному запуску, включая сборку whisper.cpp.
+→ **[QUICK_START.md](../QUICK_START.md)** — полная инструкция по локальному запуску, включая whisper.cpp, Redis, Ollama.
 
 ## Содержание
 
@@ -28,16 +28,21 @@
 | Backend | [backend/README.md](../backend/README.md) | 5000 |
 | Aura | [aura/README.md](../aura/README.md) | 4000 |
 | Audioray | [audioray/README.md](../audioray/README.md) | 3000 (+ 8081 whisper server) |
+| Redis | — (BullMQ) | 6379 |
+| Ollama | — (LLM для выжимок) | 11434 |
 
 ## Текущий статус (кратко)
 
 | Область | Статус |
 |---------|--------|
 | Ядро (Telemost + Whisper) | ✅ Работает |
-| Backend + PostgreSQL | ✅ Фаза 4 |
-| Frontend (auth, meetings, SSE) | ✅ Фаза 6 (кроме `/settings/security`) |
+| Backend + PostgreSQL + миграции | ✅ |
+| Frontend (auth, meetings, SSE, TOTP) | ✅ Фаза 6 |
+| LLM-выжимка + задачи (Ollama) | ✅ Фаза 5 (частично) |
+| BullMQ + экспорт MD/PDF | ✅ |
+| Multi-bot Aura | ✅ `BOT_MAX_CONCURRENT` |
 | Google Meet | 🔴 Заглушка |
-| LLM / Trello (фаза 5) | ⏳ Не начато |
+| Trello / webhooks / Notion | ⏳ Не начато |
 | Тесты | 🔴 Почти нет |
 
 ---

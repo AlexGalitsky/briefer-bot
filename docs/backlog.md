@@ -1,14 +1,29 @@
 # Бэклог: фичи и улучшения
 
+**Обновлено:** 27 июня 2026
+
 ## Высокий приоритет
 
-| Фича | Описание | Сервис |
-|------|----------|--------|
-| TOTP settings page | `/settings/security` с QR для Google Authenticator | frontend |
-| TypeORM migrations | Убрать `DB_SYNCHRONIZE` в prod | backend |
-| SSE fallback | Polling `GET /transcript` если EventSource падает | frontend |
-| E2E smoke tests | Регистрация → встреча → сегмент в UI | все |
-| Prod SMS gateway | Twilio / SMS.ru вместо `ConsoleSmsGateway` | backend |
+| Фича | Описание | Сервис | Статус |
+|------|----------|--------|--------|
+| E2E smoke tests | Регистрация → встреча → сегмент → выжимка в UI | все | ⏳ |
+| Prod SMS gateway | Twilio / SMS.ru вместо `ConsoleSmsGateway` | backend | ⏳ |
+| Staging migrations | `DB_SYNCHRONIZE=false` + `migration:run` на staging | backend | ⏳ |
+
+## Сделано недавно ✅
+
+| Фича | Сервис |
+|------|--------|
+| TOTP settings page `/settings/security` с QR | frontend |
+| TypeORM migrations (initial + summary/tasks) | backend |
+| SSE reconnect + polling fallback | frontend |
+| LLM summary + tasks (Ollama) | audioray + backend |
+| BullMQ + Redis для выжимок | backend |
+| Экспорт Markdown / PDF | backend + frontend |
+| Multi-bot (`BOT_MAX_CONCURRENT`) | aura |
+| Telemost selectors в отдельном файле | aura |
+| Mobile layout (sidebar → sheet) | frontend |
+| UI вкладки Summary / Tasks | frontend |
 
 ## Качество STT
 
@@ -26,36 +41,39 @@
 |------|----------|--------|
 | Google Meet bot | Join, аудио, спикеры (сейчас заглушка) | aura |
 | Zoom / Teams | Новая платформа = `platforms/` + selectors | aura |
-| Устойчивые селекторы Telemost | Вынести CSS, fallback при смене UI | aura |
+| Устойчивые селекторы Telemost | Мониторинг при смене UI Яндекса | aura |
 
-## Фаза 5 — Продукт
+## Фаза 5 — Продукт (остаток)
 
-| Фича | Описание |
-|------|----------|
-| LLM summary | Выжимка встречи после `ended` |
-| Task extraction | Задачи из стенограммы → Trello API |
-| Export | PDF, Markdown, Notion |
-| Webhooks | Уведомление при завершении встречи |
-| История встреч | Поиск, фильтры, архив |
+| Фича | Описание | Статус |
+|------|----------|--------|
+| LLM summary | Выжимка после `ended` | ✅ |
+| Task extraction | Задачи из стенограммы | ✅ (в БД, без Trello) |
+| Export PDF / Markdown | Скачивание выжимки | ✅ |
+| Trello sync | Отправка задач во внешний трекер | ⏳ |
+| Webhooks | Уведомление при завершении встречи | ⏳ |
+| Export Notion | Интеграция с Notion API | ⏳ |
+| История встреч | Поиск, фильтры, архив | ⏳ |
 
 ## DevOps / Infra
 
 | Фича | Описание |
 |------|----------|
-| Docker Compose | postgres + backend + aura + audioray + frontend |
+| Docker Compose | postgres + redis + ollama + backend + aura + audioray + frontend |
 | CI | lint + build на PR |
 | Health dashboards | Prometheus metrics на `/health` расширениях |
 | Secrets management | Vault / env в CI, не в репо |
 
 ## UX
 
-| Фича | Описание |
-|------|----------|
-| Статус бота в UI | pending / active / failed с причиной |
-| Редактирование сегментов | Post-correction стенограммы |
-| Speaker colors | Цветовая кодировка спикеров |
-| Mobile layout | Адаптив для планшетов |
-| i18n | RU/EN интерфейс |
+| Фича | Описание | Статус |
+|------|----------|--------|
+| Статус бота в UI | pending / active / failed с причиной | ⏳ |
+| Редактирование сегментов | Post-correction стенограммы | ⏳ |
+| Speaker colors | Цветовая кодировка спикеров | ⏳ |
+| Mobile layout | Адаптив для планшетов | ✅ |
+| i18n | RU/EN интерфейс | ⏳ |
+| Прогресс генерации выжимки | Spinner / статус `processing` | 🟡 частично |
 
 ## API
 

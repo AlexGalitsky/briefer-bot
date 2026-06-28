@@ -3,6 +3,8 @@ import { DataSource } from 'typeorm';
 import { OtpChallenge } from './auth/entities/otp-challenge.entity';
 import { Meeting } from './meetings/entities/meeting.entity';
 import { TranscriptSegment } from './transcripts/entities/transcript-segment.entity';
+import { MeetingSummary } from './summaries/entities/meeting-summary.entity';
+import { MeetingTask } from './summaries/entities/meeting-task.entity';
 import { User } from './users/entities/user.entity';
 
 loadEnv();
@@ -14,7 +16,7 @@ export default new DataSource({
   username: process.env.DB_USER ?? 'postgres',
   password: process.env.DB_PASSWORD ?? 'postgres',
   database: process.env.DB_NAME ?? 'briefer',
-  entities: [User, Meeting, TranscriptSegment, OtpChallenge],
+  entities: [User, Meeting, TranscriptSegment, OtpChallenge, MeetingSummary, MeetingTask],
   migrations: ['src/migrations/*.ts'],
   synchronize: false,
 });
