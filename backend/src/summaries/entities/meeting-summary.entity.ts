@@ -36,7 +36,7 @@ export class MeetingSummary {
   @Column({ name: 'content_markdown', type: 'text', nullable: true })
   contentMarkdown: string | null;
 
-  @Column({ length: 64, nullable: true })
+  @Column({ type: 'varchar', length: 64, nullable: true })
   model: string | null;
 
   @Column({ name: 'processing_time_sec', type: 'float', nullable: true })
