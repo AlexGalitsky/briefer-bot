@@ -1,3 +1,4 @@
+> **Ближайший созвон:** пошаговый план подготовки и сбора датасета → [docs/call-prep-plan.md](docs/call-prep-plan.md)
 
 1. backend (NestJS + TypeORM + PostgreSQL + Redis/BullMQ). Хранит таблицы User, Meeting, TranscriptSegment, MeetingSummary, MeetingTask.
 2. aura (NestJS + Puppeteer). Подключается к созвонам, захватывает аудио и шлет 6-секундные WebM чанки в audioray. Получает текст и шлет его в backend через POST /internal/transcript-segments.
