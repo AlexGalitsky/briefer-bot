@@ -3,10 +3,10 @@
 **Обновлено:** 27 июня 2026
 
 ```
-Фазы 0–4 ✅     Фаза 6 🟡         Фаза 5 ⏳
+Фазы 0–4 ✅     Фаза 6 ✅         Фаза 5 🟡
     │              │                  │
     ▼              ▼                  ▼
-Ядро+Backend →  React UI        LLM/Trello/Meet
+Ядро+Backend →  React UI        LLM/задачи/экспорт
 ```
 
 | Этап | Результат | Статус |
@@ -16,8 +16,8 @@
 | **2** | Стенограмма как API | ✅ (перенесено в backend) |
 | **3** | Чистая архитектура кода | ✅ |
 | **4** | Backend + TypeORM + internal Aura | ✅ |
-| **5** | LLM, задачи, Google Meet | ⏳ Резерв |
-| **6** | React UI | 🟡 Почти готово |
+| **5** | LLM, задачи, экспорт | 🟡 Частично |
+| **6** | React UI | ✅ |
 
 ---
 
@@ -66,17 +66,27 @@
 - [x] `meetingId` от backend
 - [x] Удалены публичные `GET /meetings/*`
 
-## Фаза 5 — Резерв ⏳
+## Фаза 5 — LLM и продукт 🟡
 
-- [ ] Выжимка встречи (LLM) → `Summary` entity
-- [ ] Задачи / Trello → `Task` entity
-- [ ] BullMQ + Redis для фоновых джоб
-- [ ] Webhook-и, экспорт (PDF, Notion)
+### Сделано
+
+- [x] Выжимка встречи (Ollama через Audioray) → `MeetingSummary`
+- [x] Извлечение задач → `MeetingTask`
+- [x] Автозапуск после `meeting.status = ended`
+- [x] BullMQ + Redis для фоновых джоб (fallback in-process при `REDIS_ENABLED=false`)
+- [x] Экспорт выжимки: Markdown, PDF
+- [x] UI: вкладки Summary / Tasks, скачивание MD/PDF
+- [x] TypeORM migrations (2 миграции: initial + summary/tasks)
+
+### Осталось
+
+- [ ] Trello / внешние таск-трекеры
+- [ ] Webhooks при завершении встречи
+- [ ] Экспорт в Notion
 - [ ] Google Meet — полная реализация бота
-- [ ] TypeORM migrations (обязательно перед prod)
 - [ ] Реальный SMS-провайдер (Twilio, SMS.ru)
 
-## Фаза 6 — React Frontend 🟡
+## Фаза 6 — React Frontend ✅
 
 Детали: [frontend/PLAN.md](../frontend/PLAN.md)
 
@@ -85,21 +95,21 @@
 - [x] **6.1** Auth: register/login, OTP, TOTP step
 - [x] **6.2** Meetings: список, старт/стоп
 - [x] **6.3** Live-стенограмма: SSE + TranscriptView
-- [x] **6.4** Темы light/dark
+- [x] **6.4** Темы light/dark, mobile layout
 - [x] **6.5** `/settings/security` — TOTP setup с QR
-- [x] **6.6** Polling fallback при недоступности SSE
-- [ ] Фаза 5+: выжимки и задачи в UI
+- [x] **6.6** SSE reconnect + polling fallback
+- [x] **6.7** Вкладки Summary / Tasks, экспорт MD/PDF
 
 ### Критерий готовности фазы 6
 
-Пользователь регистрируется → создаёт встречу → видит live-стенограмму в браузере без curl.
+Пользователь регистрируется → создаёт встречу → видит live-стенограмму в браузере → после stop видит выжимку и задачи.
 
 ---
 
 ## Следующие приоритеты
 
-1. `/settings/security` (TOTP QR)
-2. TypeORM migrations + `DB_SYNCHRONIZE=false` для staging/prod
-3. E2E smoke-тесты (Playwright или supertest)
-4. Google Meet bot (если нужна вторая платформа)
-5. Фаза 5 по запросу заказчика
+1. E2E smoke-тесты (Playwright или supertest)
+2. `DB_SYNCHRONIZE=false` + migrations на staging/prod
+3. Google Meet bot (если нужна вторая платформа)
+4. Trello / webhooks по запросу
+5. Silero VAD, метрики STT

@@ -1,4 +1,4 @@
-import { RefreshCwIcon } from 'lucide-react'
+import { DownloadIcon, FileTextIcon, RefreshCwIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -19,6 +19,9 @@ interface SummaryViewProps {
   onRegenerate?: () => void
   regenerating?: boolean
   canRegenerate?: boolean
+  onDownloadMarkdown?: () => void
+  onDownloadPdf?: () => void
+  downloading?: boolean
 }
 
 function renderMarkdownLine(line: string, key: number) {
@@ -57,6 +60,9 @@ export function SummaryView({
   onRegenerate,
   regenerating,
   canRegenerate = true,
+  onDownloadMarkdown,
+  onDownloadPdf,
+  downloading,
 }: SummaryViewProps) {
   if (isLoading) {
     return <Skeleton className="h-48 w-full" />
@@ -93,22 +99,48 @@ export function SummaryView({
         <Badge variant={summary.status === 'ready' ? 'default' : 'secondary'}>
           {statusLabels[summary.status]}
         </Badge>
-        {canRegenerate && onRegenerate && (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={
-              regenerating ||
-              summary.status === 'processing' ||
-              summary.status === 'pending'
-            }
-            onClick={onRegenerate}
-          >
-            <RefreshCwIcon className="mr-2 size-4" />
-            {regenerating ? 'Генерация…' : 'Перегенерировать'}
-          </Button>
-        )}
+        <div className="flex flex-wrap gap-2">
+          {summary.status === 'ready' && onDownloadMarkdown && onDownloadPdf && (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={downloading}
+                onClick={onDownloadMarkdown}
+              >
+                <FileTextIcon className="mr-2 size-4" />
+                Markdown
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={downloading}
+                onClick={onDownloadPdf}
+              >
+                <DownloadIcon className="mr-2 size-4" />
+                PDF
+              </Button>
+            </>
+          )}
+          {canRegenerate && onRegenerate && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={
+                regenerating ||
+                summary.status === 'processing' ||
+                summary.status === 'pending'
+              }
+              onClick={onRegenerate}
+            >
+              <RefreshCwIcon className="mr-2 size-4" />
+              {regenerating ? 'Генерация…' : 'Перегенерировать'}
+            </Button>
+          )}
+        </div>
       </div>
 
       {summary.status === 'processing' || summary.status === 'pending' ? (
@@ -117,7 +149,7 @@ export function SummaryView({
           <Skeleton className="h-4 w-full" />
           <Skeleton className="h-4 w-5/6" />
           <p className="text-sm text-muted-foreground">
-            Ollama генерирует выжимку — это может занять 1–3 минуты…
+            Выжимка генерируется в фоновой очереди — это может занять 1–3 минуты…
           </p>
         </div>
       ) : summary.status === 'failed' ? (

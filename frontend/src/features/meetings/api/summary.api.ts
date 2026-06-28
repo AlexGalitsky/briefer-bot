@@ -24,6 +24,45 @@ export async function regenerateSummary(meetingId: string) {
   return data as { meetingId: string; message: string }
 }
 
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
+function filenameFromDisposition(header: string | undefined, fallback: string) {
+  if (!header) return fallback
+  const match = header.match(/filename="?([^";\n]+)"?/)
+  return match?.[1] ?? fallback
+}
+
+export async function downloadSummaryMarkdown(meetingId: string) {
+  const response = await apiClient.get(
+    `/meetings/${meetingId}/summary/export/markdown`,
+    { responseType: 'blob' },
+  )
+  const filename = filenameFromDisposition(
+    response.headers['content-disposition'] as string | undefined,
+    `summary-${meetingId.slice(0, 8)}.md`,
+  )
+  downloadBlob(response.data as Blob, filename)
+}
+
+export async function downloadSummaryPdf(meetingId: string) {
+  const response = await apiClient.get(
+    `/meetings/${meetingId}/summary/export/pdf`,
+    { responseType: 'blob' },
+  )
+  const filename = filenameFromDisposition(
+    response.headers['content-disposition'] as string | undefined,
+    `summary-${meetingId.slice(0, 8)}.pdf`,
+  )
+  downloadBlob(response.data as Blob, filename)
+}
+
 export async function updateTaskCompleted(
   meetingId: string,
   taskId: string,

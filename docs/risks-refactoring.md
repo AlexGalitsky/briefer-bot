@@ -1,15 +1,18 @@
 # Риски, рефакторинг, технический долг
 
+**Обновлено:** 27 июня 2026
+
 ## Критические риски
 
 | Риск | Влияние | Митигация |
 |------|---------|-----------|
-| **Хрупкие CSS Telemost** | Бот перестаёт join/захватывать спикеров после обновления UI | Вынести селекторы, мониторинг, e2e на реальном созвоне |
-| **`DB_SYNCHRONIZE=true`** | Потеря/искажение схемы в prod | Migrations до деплоя |
+| **Хрупкие CSS Telemost** | Бот перестаёт join/захватывать спикеров после обновления UI | `telemost.selectors.ts` ✅, мониторинг, e2e на реальном созвоне |
+| **`DB_SYNCHRONIZE=true` в prod** | Потеря/искажение схемы | Migrations ✅ — включить `DB_SYNCHRONIZE=false` на staging/prod |
 | **Нет тестов** | Регрессии при рефакторинге | Smoke e2e + unit на VAD/фильтр |
-| **Один бот на инстанс Aura** | Нельзя параллельно несколько встреч | Документировать; очередь встреч или горизонтальное масштабирование |
 | **Puppeteer в prod** | Память, crashes, anti-bot | Отдельный worker-хост, headless tuning, retry join |
-| **Модель 1.6 GB в RAM** | OOM на слабом сервере | `ggml-base` для dev; мониторинг памяти audioray |
+| **Модель Whisper 1.6 GB в RAM** | OOM на слабом сервере | `ggml-base` для dev; мониторинг памяти audioray |
+| **Ollama timeout / OOM** | Выжимка зависает в `processing` | `OLLAMA_TIMEOUT_MS`, меньшая модель, retry в BullMQ |
+| **Redis недоступен** | Очередь не работает | `REDIS_ENABLED=false` → in-process fallback |
 | **Internal token в .env** | Утечка = полный доступ к internal API | Rotate, IP allowlist, mTLS в prod |
 
 ## Средние риски
@@ -22,6 +25,7 @@
 | `--mute-audio` / block media | aura base-bot | Проверить на реальных созвонах |
 | OTP в dev response | backend | Выключить `AUTH_DEV_EXPOSE_OTP` в prod |
 | CORS single origin | backend | Настроить prod domain |
+| PDF кириллица | backend export | Roboto в pdfmake ✅ — проверить на prod |
 
 ## Где нужен рефакторинг
 
@@ -29,16 +33,17 @@
 
 | Область | Проблема | Действие |
 |---------|----------|----------|
-| Migrations | `synchronize: true` только для dev | `typeorm migration:generate` |
+| Migrations | Скелет есть ✅ | CI: `migration:run` на deploy |
 | Config | Разброс env | Централизовать validation (class-validator) |
 | AuraClient | Нет retry/backoff | Добавить при transient errors |
 | SSE | Долгие соединения | Тест за proxy (nginx buffering) |
+| Summary retry | Failed job | Dead-letter + manual regenerate |
 
 ### Aura (P1)
 
 | Область | Проблема | Действие |
 |---------|----------|----------|
-| `telemost.bot.ts` | Большой файл, хрупкие селекторы | `telemost.selectors.ts` + тесты селекторов |
+| `telemost.bot.ts` | Большой файл | Селекторы вынесены ✅; дальше — unit-тесты |
 | `base-bot.ts` | mute-audio, media block | Документировать / флаги env |
 | Google Meet | Заглушка | Удалить или реализовать |
 | Тесты | DI падает в spec | Моки AudiorayClient, BackendClient |
@@ -47,42 +52,36 @@
 
 | Область | Проблема | Действие |
 |---------|----------|----------|
-| `whisper-node` vendor | Только бинарник | `scripts/build-whisper.sh` ✅, опционально свой fork |
+| `whisper-node` vendor | Только бинарник | `scripts/build-whisper.sh` ✅ |
 | API validation | Слабая | DTO + ValidationPipe |
 | Error responses | Всё → `text: ""` | Коды/поля `skippedReason` |
 | Health | Нет метрик очереди | `queueDepth` в `/health` |
+| Summary prompt | Хрупкий парсинг JSON | Structured output / JSON mode Ollama |
 
 ### Frontend (P2)
 
 | Область | Проблема | Действие |
 |---------|----------|----------|
-| SSE reconnect | Нет auto-reconnect | exponential backoff в `useTranscriptStream` |
+| SSE reconnect | ✅ exponential backoff | — |
 | Auth token | sessionStorage | Refresh strategy если добавится refresh token |
-| Error boundaries | Нет | Обёртка на routes |
-| `/settings/security` | Не реализовано | QR + confirm flow |
+| Summary polling | Интервал фиксированный | Backoff при `processing` |
+| routeTree.gen.ts | Ручной патч security route | Перегенерировать через TanStack Router CLI |
 
-## Что улучшить без большого рефакторинга
+## Технический долг (сводка)
 
-1. **Документация** — QUICK_START, docs/ ✅
-2. **build-whisper.sh** — явная сборка под Metal/CUDA ✅
-3. **`.env.example`** — синхронизировать `INTERNAL_API_TOKEN` между сервисами
-4. **Логирование** — structured JSON в prod (pino)
-5. **Chunk interval** — env `BOT_CHUNK_INTERVAL_MS` (уже есть, документировать)
+| Приоритет | Область | Статус |
+|-----------|---------|--------|
+| P0 | Migrations для prod | 🟡 файлы есть, prod не включено |
+| P0 | E2E тесты | 🔴 |
+| P1 | Google Meet или удаление заглушки | 🔴 |
+| P1 | Prod SMS | 🔴 |
+| P2 | Silero VAD | 🔴 |
+| P2 | OpenAPI docs | 🔴 |
+| P2 | Docker Compose | 🔴 |
 
-## Антипаттерны (не делать)
+## Снятые риски (2026)
 
-- Дублировать transcript в Aura после фазы 4
-- Открывать internal API без token
-- Коммитить модели `.bin` и recordings
-- Использовать `synchronize: true` в production
-
-## Файлы для ревью в первую очередь
-
-| Приоритет | Файл | Причина |
-|-----------|------|---------|
-| P0 | `backend/src/meetings/` | Публичный API встреч |
-| P0 | `aura/src/transcription/audioray.client.ts` | STT + push в backend |
-| P0 | `aura/src/bot/platforms/telemost/telemost.bot.ts` | Захват аудио, спикеры |
-| P1 | `audioray/src/whisper/whisper-process.service.ts` | Worker, очередь |
-| P1 | `frontend/src/features/meetings/hooks/` | SSE stream |
-| P2 | `backend/src/auth/` | OTP/TOTP security |
+- ~~Один бот на инстанс Aura~~ → multi-bot с `BOT_MAX_CONCURRENT`
+- ~~Нет TOTP UI~~ → `/settings/security`
+- ~~Нет SSE fallback~~ → reconnect + polling
+- ~~Нет выжимок~~ → Ollama + BullMQ + UI

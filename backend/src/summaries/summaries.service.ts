@@ -44,20 +44,7 @@ export class SummariesService {
     });
   }
 
-  scheduleGeneration(meetingId: string): void {
-    void this.generateForMeeting(meetingId).catch((error) => {
-      const message = error instanceof Error ? error.message : String(error);
-      this.logger.error(`Summary generation failed (${meetingId}): ${message}`);
-    });
-  }
-
-  scheduleRegenerate(meetingId: string): void {
-    void this.regenerateForMeeting(meetingId).catch((error) => {
-      const message = error instanceof Error ? error.message : String(error);
-      this.logger.error(`Summary regenerate failed (${meetingId}): ${message}`);
-    });
-  }
-
+  /** Вызывается из BullMQ processor или in-process fallback */
   async regenerateForMeeting(meetingId: string): Promise<void> {
     this.inFlight.delete(meetingId);
     await this.tasksRepository.delete({ meetingId });

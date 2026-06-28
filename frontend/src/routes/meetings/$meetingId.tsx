@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
@@ -11,6 +11,10 @@ import { TasksList } from '@/features/meetings/components/tasks-list'
 import { useMeeting, useTranscript } from '@/features/meetings/api/use-transcript'
 import { useTranscriptStream } from '@/features/meetings/api/use-transcript-stream'
 import { useStopMeeting } from '@/features/meetings/api/use-meetings'
+import {
+  downloadSummaryMarkdown,
+  downloadSummaryPdf,
+} from '@/features/meetings/api/summary.api'
 import {
   useRegenerateSummary,
   useSummary,
@@ -54,6 +58,7 @@ function MeetingDetailPage() {
 
   const regenerateSummary = useRegenerateSummary(meetingId)
   const updateTask = useUpdateTask(meetingId)
+  const [downloading, setDownloading] = useState(false)
 
   const allSegments = useMemo(() => {
     const base = transcriptData?.segments ?? []
@@ -77,7 +82,7 @@ function MeetingDetailPage() {
   const handleRegenerate = async () => {
     try {
       await regenerateSummary.mutateAsync()
-      toast.success('Генерация выжимки запущена')
+      toast.success('Выжимка поставлена в очередь')
     } catch (error) {
       toast.error(getApiErrorMessage(error))
     }
@@ -88,6 +93,28 @@ function MeetingDetailPage() {
       await updateTask.mutateAsync({ taskId, completed })
     } catch (error) {
       toast.error(getApiErrorMessage(error))
+    }
+  }
+
+  const handleDownloadMarkdown = async () => {
+    setDownloading(true)
+    try {
+      await downloadSummaryMarkdown(meetingId)
+    } catch (error) {
+      toast.error(getApiErrorMessage(error))
+    } finally {
+      setDownloading(false)
+    }
+  }
+
+  const handleDownloadPdf = async () => {
+    setDownloading(true)
+    try {
+      await downloadSummaryPdf(meetingId)
+    } catch (error) {
+      toast.error(getApiErrorMessage(error))
+    } finally {
+      setDownloading(false)
     }
   }
 
@@ -151,6 +178,9 @@ function MeetingDetailPage() {
             onRegenerate={handleRegenerate}
             regenerating={regenerateSummary.isPending}
             canRegenerate={isEnded}
+            onDownloadMarkdown={handleDownloadMarkdown}
+            onDownloadPdf={handleDownloadPdf}
+            downloading={downloading}
           />
         </TabsContent>
 

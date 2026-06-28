@@ -37,8 +37,13 @@ JWT_SECRET=change-me
 AUTH_DEV_EXPOSE_OTP=true
 
 AURA_URL=http://localhost:4000
+AUDIORAY_URL=http://localhost:3000
 INTERNAL_API_TOKEN=dev-internal-token
 CORS_ORIGIN=http://localhost:5173
+
+REDIS_ENABLED=true
+REDIS_HOST=localhost
+REDIS_PORT=6379
 ```
 
 ## Auth: телефон + OTP + TOTP
@@ -80,9 +85,25 @@ GET  /meetings
 GET  /meetings/:id/transcript
 GET  /meetings/:id/transcript/stream   # SSE
 GET  /meetings/:id/summary             # выжимка (Ollama через Audioray)
-POST /meetings/:id/summary/regenerate
+POST /meetings/:id/summary/regenerate  # в очередь BullMQ
+GET  /meetings/:id/summary/export/markdown
+GET  /meetings/:id/summary/export/pdf
 GET  /meetings/:id/tasks
 PATCH /meetings/:id/tasks/:taskId      # { completed: true/false }
+```
+
+## Очередь выжимок (BullMQ + Redis)
+
+```env
+REDIS_ENABLED=true
+REDIS_HOST=localhost
+REDIS_PORT=6379
+```
+
+При `REDIS_ENABLED=false` генерация выполняется in-process (без очереди).
+
+```bash
+docker run -d -p 6379:6379 redis:7-alpine
 ```
 
 ## Internal API (Aura → Backend)
@@ -108,7 +129,9 @@ src/
 ├── users/
 ├── meetings/
 ├── transcripts/
+├── summaries/       # MeetingSummary, MeetingTask, BullMQ, export
 ├── aura-client/
+├── audioray-client/
 ├── internal/
 └── config/
 ```
